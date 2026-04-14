@@ -26,8 +26,9 @@
       <img src="logo-text.svg" alt="Wembley Central Masjid" class="header-logo-text" id="headerLogoText">
       <span id="headerText" style="display:none">Wembley Central Masjid</span>
     </div>
-    <div class="header-right">
+    <div class="header-right" onclick="showSubScreen('notifications')">
       <i class="fas fa-bell"></i>
+      <span class="notif-badge">3</span>
     </div>
   </div>
 
@@ -376,6 +377,65 @@
         <h2>360° Mosque Tour</h2>
         <p>Explore the Masjid from anywhere</p>
         <button class="btn-primary" onclick="alert('Opens 360° tour')">Start Tour</button>
+      </div>
+    </div>
+
+    <!-- PUSH NOTIFICATION SETTINGS -->
+    <div class="screen sub-screen" id="screen-notifications">
+      <div class="screen-title-bar"><h2>Push Notifications</h2></div>
+      <div class="section-card">
+        <p style="font-size:13px;color:var(--text-light);margin-bottom:12px">Choose which notifications you'd like to receive on your phone.</p>
+      </div>
+      <div class="toggle-list">
+        <div class="toggle-item">
+          <div class="toggle-info">
+            <i class="fas fa-clock" style="color:var(--green)"></i>
+            <div><strong>Prayer Times</strong><p>Daily Adhan and Iqamah alerts</p></div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-item">
+          <div class="toggle-info">
+            <i class="fas fa-mosque" style="color:var(--green)"></i>
+            <div><strong>Jumuah Reminder</strong><p>Friday prayer reminders</p></div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-item">
+          <div class="toggle-info">
+            <i class="fas fa-calendar-alt" style="color:#2980B9"></i>
+            <div><strong>Events</strong><p>Upcoming lectures, programmes and gatherings</p></div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-item">
+          <div class="toggle-info">
+            <i class="fas fa-hand-holding-heart" style="color:var(--purple)"></i>
+            <div><strong>Donation Appeals</strong><p>Fundraising campaigns and appeals</p></div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-item">
+          <div class="toggle-info">
+            <i class="fas fa-book-open" style="color:#E67E22"></i>
+            <div><strong>Madrasah</strong><p>Class updates, homework and parent notices</p></div>
+          </div>
+          <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-item">
+          <div class="toggle-info">
+            <i class="fas fa-bullhorn" style="color:#E74C3C"></i>
+            <div><strong>Announcements</strong><p>General Masjid news and urgent notices</p></div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-item">
+          <div class="toggle-info">
+            <i class="fas fa-car" style="color:#F9A825"></i>
+            <div><strong>Stadium Event Days</strong><p>Parking and traffic alerts on event days</p></div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+        </div>
       </div>
     </div>
 

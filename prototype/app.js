@@ -78,6 +78,7 @@ function showSubScreen(name, param) {
     'contact': 'Contact Us',
     'services': 'Services',
     'tour': 'Virtual Tour',
+    'notifications': 'Notifications',
     'stadium': 'Stadium Event Days',
     'donate-detail': 'Donate',
   };
