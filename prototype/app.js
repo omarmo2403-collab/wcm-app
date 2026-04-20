@@ -78,6 +78,8 @@ function showSubScreen(name, param) {
     'contact': 'Contact Us',
     'services': 'Services',
     'tour': 'Virtual Tour',
+    'signin': 'Sign In',
+    'account': 'Account',
     'notifications': 'Notifications',
     'stadium': 'Stadium Event Days',
     'donate-detail': 'Donate',
@@ -185,6 +187,44 @@ function updateStatusTime() {
   const m = now.getMinutes().toString().padStart(2, '0');
   const period = h >= 12 ? '' : '';
   document.getElementById('statusTime').textContent = `${h % 12 || 12}:${m}`;
+}
+
+// === AUTH (mock) === //
+
+let isSignedIn = false;
+
+function mockSignIn() {
+  isSignedIn = true;
+  // Switch header avatar
+  document.getElementById('headerAvatarSignedOut').style.display = 'none';
+  document.getElementById('headerAvatarSignedIn').style.display = 'flex';
+  // Switch More screen prompt/card
+  document.getElementById('moreSigninPrompt').style.display = 'none';
+  document.getElementById('moreProfileCard').style.display = 'flex';
+
+  showToast('Signed in successfully');
+  showScreen('more');
+}
+
+function mockSignOut() {
+  isSignedIn = false;
+  document.getElementById('headerAvatarSignedOut').style.display = 'flex';
+  document.getElementById('headerAvatarSignedIn').style.display = 'none';
+  document.getElementById('moreSigninPrompt').style.display = 'flex';
+  document.getElementById('moreProfileCard').style.display = 'none';
+
+  showToast('Signed out');
+  showScreen('more');
+}
+
+function mockSendOTP() {
+  var phone = document.getElementById('phoneInput').value;
+  if (!phone || phone.length < 6) {
+    showToast('Please enter a valid phone number');
+    return;
+  }
+  document.getElementById('otpSection').style.display = 'block';
+  showToast('Verification code sent');
 }
 
 // === BANNERS === //
