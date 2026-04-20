@@ -296,17 +296,16 @@ body {
   overflow: hidden;
 }
 .prayer-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
   padding: 12px 14px 6px;
 }
 .prayer-card-header h2 {
   font-size: 15px;
   font-weight: 700;
   color: var(--text);
+  margin-bottom: 2px;
 }
 .prayer-card-date {
+  display: block;
   font-size: 12px;
   color: var(--text-muted);
 }
