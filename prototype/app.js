@@ -265,12 +265,38 @@ function initBanners() {
   }, 4000);
 }
 
+// === TODAY'S DATE === //
+
+function updateTodayDate() {
+  const now = new Date();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const day = now.getDate();
+  const month = months[now.getMonth()];
+
+  // Hijri approximation (rough offset - not precise, just for prototype display)
+  // Using Intl if available for proper Hijri
+  let hijriText = '';
+  try {
+    const hijri = new Intl.DateTimeFormat('en-u-ca-islamic', { day: 'numeric', month: 'long', year: 'numeric' }).format(now);
+    hijriText = hijri;
+  } catch(e) {
+    hijriText = 'Hijri date';
+  }
+
+  // Update prayer card date
+  const dateEl = document.querySelector('.prayer-card-date');
+  if (dateEl) {
+    dateEl.innerHTML = day + ' ' + month + ' ' + now.getFullYear() + ' <span class="hijri-badge">' + hijriText + '</span>';
+  }
+}
+
 // === INIT === //
 
 function init() {
   renderEvents();
   renderNews();
   updateStatusTime();
+  updateTodayDate();
   setInterval(updateStatusTime, 60000);
   initBanners();
 }
