@@ -78,8 +78,6 @@ function showSubScreen(name, param) {
     'contact': 'Contact Us',
     'services': 'Services',
     'tour': 'Virtual Tour',
-    'signin': 'Sign In',
-    'account': 'Account',
     'notifications': 'Notifications',
     'stadium': 'Stadium Event Days',
     'donate-detail': 'Donate',
@@ -189,44 +187,6 @@ function updateStatusTime() {
   document.getElementById('statusTime').textContent = `${h % 12 || 12}:${m}`;
 }
 
-// === AUTH (mock) === //
-
-let isSignedIn = false;
-
-function mockSignIn() {
-  isSignedIn = true;
-  // Switch header avatar
-  document.getElementById('headerAvatarSignedOut').style.display = 'none';
-  document.getElementById('headerAvatarSignedIn').style.display = 'flex';
-  // Switch More screen prompt/card
-  document.getElementById('moreSigninPrompt').style.display = 'none';
-  document.getElementById('moreProfileCard').style.display = 'flex';
-
-  showToast('Signed in successfully');
-  showScreen('more');
-}
-
-function mockSignOut() {
-  isSignedIn = false;
-  document.getElementById('headerAvatarSignedOut').style.display = 'flex';
-  document.getElementById('headerAvatarSignedIn').style.display = 'none';
-  document.getElementById('moreSigninPrompt').style.display = 'flex';
-  document.getElementById('moreProfileCard').style.display = 'none';
-
-  showToast('Signed out');
-  showScreen('more');
-}
-
-function mockSendOTP() {
-  var phone = document.getElementById('phoneInput').value;
-  if (!phone || phone.length < 6) {
-    showToast('Please enter a valid phone number');
-    return;
-  }
-  document.getElementById('otpSection').style.display = 'block';
-  showToast('Verification code sent');
-}
-
 // === BANNERS === //
 
 function initBanners() {
@@ -269,24 +229,34 @@ function initBanners() {
 
 function updateTodayDate() {
   const now = new Date();
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthsFull = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const day = now.getDate();
-  const month = months[now.getMonth()];
+  const monthFull = monthsFull[now.getMonth()];
+  const year = now.getFullYear();
 
-  // Hijri approximation (rough offset - not precise, just for prototype display)
-  // Using Intl if available for proper Hijri
-  let hijriText = '';
-  try {
-    const hijri = new Intl.DateTimeFormat('en-u-ca-islamic', { day: 'numeric', month: 'long', year: 'numeric' }).format(now);
-    hijriText = hijri;
-  } catch(e) {
-    hijriText = 'Hijri date';
+  // Gregorian: "July 9, 2026" (rendered after the "for " label)
+  const gregEl = document.querySelector('.tt-greg');
+  if (gregEl) {
+    gregEl.textContent = monthFull + ' ' + day + ', ' + year;
   }
 
-  // Update prayer card date
-  const dateEl = document.querySelector('.prayer-card-date');
-  if (dateEl) {
-    dateEl.innerHTML = day + ' ' + month + ' ' + now.getFullYear() + ' <span class="hijri-badge">' + hijriText + '</span>';
+  // Hijri (proper via Intl when available): "24 Muharram 1448"
+  let hijriText = '24 Muharram 1448';
+  try {
+    const parts = new Intl.DateTimeFormat('en-u-ca-islamic-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' })
+      .formatToParts(now);
+    const get = (t) => (parts.find(p => p.type === t) || {}).value || '';
+    hijriText = get('day') + ' ' + get('month') + ' ' + get('year');
+  } catch(e) { /* keep fallback */ }
+  const hijriEl = document.querySelector('.hijriDate');
+  if (hijriEl) {
+    hijriEl.textContent = hijriText;
+  }
+
+  // Bottom button label: "Prayer Times for July 2026"
+  const btnLabel = document.querySelector('.tt-btn-label');
+  if (btnLabel) {
+    btnLabel.textContent = 'Prayer Times for ' + monthFull + ' ' + year;
   }
 }
 

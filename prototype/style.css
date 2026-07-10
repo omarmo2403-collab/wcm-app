@@ -110,20 +110,6 @@ body {
   align-self: center;
   cursor: pointer;
 }
-.header-avatar {
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  background: var(--grey-bg);
-  color: var(--text-muted);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
-}
-.header-avatar.signed-in {
-  background: var(--green);
-  color: var(--white);
-  font-size: 12px;
-  font-weight: 700;
-}
 
 /* === SCREEN CONTAINER === */
 .screen-container {
@@ -251,97 +237,152 @@ body {
 }
 
 /* === HOME: HERO === */
-.home-hero {
-  background: linear-gradient(135deg, var(--green) 0%, var(--green-dark) 100%);
-  color: var(--white);
-  padding: 16px;
+/* === HOME: SALAAH WIDGET (matches wembleycentralmasjid.co.uk) === */
+:root {
+  --tt-green: #0C7058;        /* widget background */
+  --tt-green-light: #159778;  /* table header row */
+  --tt-cream: #F8EDDB;        /* highlighted text / big time */
 }
-.hero-greeting {
+.time-table {
+  background: var(--tt-green);
+  color: #ffffff;
+  padding: 24px 20px 22px;
+  font-family: inherit;
+}
+.time-table h5, .time-table h6, .time-table p { margin: 0; }
+
+/* Header */
+.tt-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.6);
+}
+.tt-title h5 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.15;
+}
+.tt-title h6 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  margin-top: 4px;
+}
+.hijriDate {
+  font-size: 15px;
+  font-style: italic;
+  color: #fff;
+  margin-top: 1px;
+}
+.tt-salaah-icon { width: 56px; height: 56px; flex-shrink: 0; }
+
+/* Next prayer countdown */
+.tt-next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 4px 18px;
+}
+.tt-next-body h6 {
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--tt-cream);
+  letter-spacing: 0.3px;
+}
+.tt-countdown {
   font-size: 14px;
-  opacity: 0.85;
-  margin-bottom: 10px;
+  color: var(--tt-cream);
 }
-.hero-next {
+.tt-timeleft { font-weight: 700; }
+.tt-next-time {
+  font-size: 34px;
+  font-weight: 400;
+  color: var(--tt-cream);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Timetable */
+.tt-timetable {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--tt-green-light);
+}
+.tt-head {
+  background: var(--tt-green-light);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  padding: 5px 8px;
+}
+.tt-timetable th, .tt-timetable td { padding: 6px 8px; }
+/* thin light-green rules between every row (matches website) */
+.tt-timetable tbody tr + tr th,
+.tt-timetable tbody tr + tr td { border-top: 1px solid var(--tt-green-light); }
+.tt-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  text-align: left;
+  white-space: nowrap;
+}
+/* flex-center the icon with the name text */
+.tt-name {
   display: flex;
   align-items: center;
 }
-.hero-next-left { flex: 1; }
-.hero-prayer-name {
-  display: block;
-  font-size: 22px;
-  font-weight: 700;
+/* time-of-day icons, one per prayer (line style, inherit text colour) */
+.tt-name .tt-ico {
+  width: 20px;
+  height: 20px;
+  margin-right: 7px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
-.hero-iqamah {
-  display: block;
-  font-size: 13px;
-  color: #A3E4D7;
+.tt-name img {                 /* Jumuah mosque */
+  width: 20px;
+  height: 20px;
+  margin-right: 7px;
+  flex-shrink: 0;
+  object-fit: contain;
 }
-.hero-time {
-  font-size: 44px;
-  font-weight: 700;
-  line-height: 1;
-}
-.hero-ampm {
-  font-size: 18px;
-  font-weight: 600;
-  opacity: 0.8;
-}
+.tt-begins { font-size: 14px; color: #fff; text-align: center; }
+.tt-jamah { font-size: 14px; color: #fff; text-align: center; font-weight: 400; }
+.tt-span { text-align: center; }
+.tr-gap { height: 4px; }
+/* active (current) prayer row */
+tr.active { box-shadow: inset 2px 0 0 var(--tt-cream); }
+.tt-active { color: var(--tt-cream) !important; }
+.tt-highlight { color: var(--tt-cream) !important; font-weight: 700; }
 
-/* === HOME: PRAYER CARD === */
-.prayer-card {
-  margin: 12px 16px;
-  background: var(--white);
-  border-radius: var(--radius);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  overflow: hidden;
-}
-.prayer-card-header {
-  padding: 12px 14px 6px;
-}
-.prayer-card-header h2 {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 2px;
-}
-.prayer-card-date {
-  display: block;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.hijri-badge {
-  display: inline-block;
-  background: rgba(21,151,120,0.1);
-  color: var(--green);
-  padding: 1px 8px;
-  border-radius: 9999px;
-  font-size: 10px;
-  font-weight: 600;
-  margin-left: 4px;
-}
-.prayer-rows {
-  padding: 0 2px 4px;
-}
-.prayer-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  padding: 8px 14px;
+/* Button */
+.tt-button { margin-top: 20px; }
+.tt-button a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 16px;
+  border-radius: 36px;
+  background: rgba(0,0,0,0.4);
+  color: #fff;
   font-size: 14px;
-  border-bottom: 1px solid var(--grey-bg);
+  font-weight: 700;
+  text-decoration: none;
 }
-.prayer-row:last-child { border-bottom: none; }
-.prayer-row.active {
-  background: rgba(21,151,120,0.06);
-  border-radius: 8px;
-  border-bottom-color: transparent;
-}
-.prayer-row.active .pr-name { color: var(--green); font-weight: 700; }
-.prayer-row.active .pr-begin,
-.prayer-row.active .pr-iqamah { color: var(--green); font-weight: 600; }
-.prayer-row.muted { color: var(--text-muted); font-size: 13px; }
-.pr-name { font-weight: 500; }
-.pr-begin { text-align: center; color: var(--text-light); }
-.pr-iqamah { text-align: right; font-weight: 500; }
+.tt-button img { width: 18px; height: 22px; }
+.tt-button .fa-angle-right { font-size: 15px; margin-left: 2px; }
 
 /* === HOME: QUICK ROW === */
 .quick-row {
@@ -1052,179 +1093,6 @@ body {
 .news-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
 .news-card p { font-size: 13px; color: var(--text-light); line-height: 1.4; }
 .news-date { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
-
-/* === MORE: PROFILE / SIGNIN PROMPT === */
-.more-signin-prompt, .more-profile-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 8px 16px 4px;
-  padding: 14px;
-  background: var(--white);
-  border-radius: var(--radius);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  cursor: pointer;
-}
-.signin-prompt-icon { font-size: 36px; color: var(--text-muted); }
-.signin-prompt-text { flex: 1; }
-.signin-prompt-text strong { font-size: 14px; display: block; }
-.signin-prompt-text p { font-size: 12px; color: var(--text-muted); margin: 0; }
-.more-signin-prompt > i:last-child,
-.more-profile-card > i:last-child { color: var(--text-muted); font-size: 14px; }
-
-.profile-avatar, .account-avatar {
-  width: 44px; height: 44px;
-  border-radius: 50%;
-  background: var(--green);
-  color: var(--white);
-  font-size: 16px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.profile-info { flex: 1; }
-.profile-info strong { font-size: 15px; display: block; }
-.profile-info p { font-size: 12px; color: var(--text-muted); margin: 0; }
-
-/* === SIGN IN PAGE === */
-.signin-page { padding: 0 20px 24px; }
-.signin-top {
-  text-align: center;
-  padding: 24px 0 20px;
-}
-.signin-top h2 { font-size: 22px; margin-bottom: 4px; }
-.signin-top p { font-size: 13px; color: var(--text-muted); }
-
-.signin-buttons { display: flex; flex-direction: column; gap: 10px; }
-.sso-btn {
-  display: flex; align-items: center; justify-content: center;
-  gap: 10px; padding: 12px; border-radius: var(--radius-sm);
-  font-size: 14px; font-weight: 600; cursor: pointer;
-  border: 1.5px solid var(--border); background: var(--white); color: var(--text);
-  width: 100%;
-}
-.sso-btn:active { background: var(--grey-bg); }
-.sso-btn.google { border-color: #ddd; }
-.sso-btn.apple { background: #000; color: #fff; border-color: #000; }
-.sso-btn.apple i { font-size: 18px; }
-.sso-btn.facebook { background: #1877F2; color: #fff; border-color: #1877F2; }
-.sso-btn.facebook i { font-size: 16px; }
-
-.signin-divider {
-  text-align: center; margin: 20px 0;
-  position: relative;
-}
-.signin-divider::before {
-  content: ""; position: absolute;
-  top: 50%; left: 0; right: 0;
-  height: 1px; background: var(--border);
-}
-.signin-divider span {
-  background: var(--white); padding: 0 16px;
-  font-size: 13px; color: var(--text-muted);
-  position: relative;
-}
-
-.phone-input-wrap {
-  display: flex; align-items: center;
-  border: 2px solid var(--border); border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-.phone-prefix {
-  padding: 10px 12px;
-  background: var(--grey-bg);
-  font-weight: 600; font-size: 14px;
-  color: var(--text-light);
-  border-right: 1px solid var(--border);
-}
-.phone-input-wrap input {
-  flex: 1; border: none; padding: 10px 12px;
-  font-size: 16px; outline: none;
-}
-
-.signin-otp { margin-top: 16px; }
-.otp-inputs {
-  display: flex; gap: 8px; margin-bottom: 14px;
-}
-.otp-box {
-  width: 100%; height: 48px;
-  border: 2px solid var(--border); border-radius: var(--radius-sm);
-  text-align: center; font-size: 20px; font-weight: 700;
-  outline: none;
-}
-.otp-box:focus { border-color: var(--green); }
-.resend-link {
-  text-align: center; font-size: 13px;
-  color: var(--text-muted); margin-top: 12px;
-}
-.resend-link a { color: var(--green); font-weight: 600; }
-
-.signin-terms {
-  text-align: center; font-size: 11px;
-  color: var(--text-muted); margin-top: 20px; line-height: 1.4;
-}
-.signin-terms a { color: var(--green); }
-
-/* === ACCOUNT SETTINGS === */
-.account-header {
-  background: linear-gradient(135deg, var(--green), var(--green-dark));
-  color: var(--white);
-  text-align: center;
-  padding: 28px 20px;
-}
-.account-header .account-avatar {
-  width: 64px; height: 64px;
-  font-size: 24px;
-  margin: 0 auto 10px;
-  background: rgba(255,255,255,0.2);
-}
-.account-header h2 { font-size: 20px; margin-bottom: 2px; }
-.account-header p { font-size: 13px; opacity: 0.8; }
-
-.account-section {
-  margin: 12px 16px;
-  background: var(--white);
-  border-radius: var(--radius);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  overflow: hidden;
-}
-.account-section-title {
-  font-size: 12px; text-transform: uppercase;
-  letter-spacing: 0.5px; color: var(--text-muted);
-  padding: 12px 14px 4px; font-weight: 600;
-}
-.account-field {
-  display: flex; justify-content: space-between;
-  align-items: center; padding: 12px 14px;
-  border-bottom: 1px solid var(--grey-bg);
-}
-.account-field:last-child { border-bottom: none; }
-.account-field.clickable { cursor: pointer; }
-.account-field label { font-size: 14px; color: var(--text); }
-.account-value {
-  font-size: 13px; color: var(--text-muted);
-  display: flex; align-items: center; gap: 8px;
-}
-.account-value i { font-size: 12px; color: var(--text-muted); }
-
-.donation-history-item {
-  display: flex; justify-content: space-between;
-  align-items: center; padding: 12px 14px;
-  border-bottom: 1px solid var(--grey-bg);
-}
-.donation-history-item:last-child { border-bottom: none; }
-.donation-history-item strong { font-size: 14px; display: block; }
-.donation-history-item p { font-size: 12px; color: var(--text-muted); margin: 0; }
-.donation-amount {
-  font-size: 15px; font-weight: 700; color: var(--green);
-}
-
-.btn-signout {
-  width: 100%; padding: 12px;
-  background: none; border: 2px solid #E74C3C;
-  color: #E74C3C; border-radius: 9999px;
-  font-size: 14px; font-weight: 600; cursor: pointer;
-}
-.btn-signout:active { background: rgba(231,76,60,0.06); }
 
 /* === NOTIFICATION TOGGLES === */
 .toggle-list { padding: 0 16px; }
