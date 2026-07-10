@@ -1,3 +1,19 @@
+// === CONFIG === //
+
+// Live events link — set this to the external live-stream / live-events URL.
+// Leave empty ('') to show a "coming soon" message instead of opening a page.
+const LIVE_EVENTS_URL = '';
+
+function openLiveEvents(e) {
+  if (e) e.preventDefault();
+  if (LIVE_EVENTS_URL) {
+    window.open(LIVE_EVENTS_URL, '_blank', 'noopener');
+  } else {
+    showToast('Live events link coming soon');
+  }
+  return false;
+}
+
 // === MOCK DATA === //
 
 const events = [
