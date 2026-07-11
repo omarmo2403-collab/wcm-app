@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
 import { useJumuahTimes, usePrayerTimes } from '@/features/prayer-times/queries';
+import { initOneSignal } from '@/lib/onesignal';
 import { registerBackgroundSync } from './background';
 import { usePrefs } from './prefs';
 import { configureNotificationHandling, syncPrayerNotifications } from './scheduler';
@@ -19,6 +20,7 @@ export function NotificationSync() {
   useEffect(() => {
     configureNotificationHandling();
     registerBackgroundSync();
+    initOneSignal();
   }, []);
 
   useEffect(() => {
