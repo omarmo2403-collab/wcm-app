@@ -2,18 +2,17 @@ import { useState } from 'react';
 
 import { callSendPush } from '../lib/supabase';
 
+// Matches the app's three notification switches exactly — congregants who
+// turn a switch off are excluded from that topic's sends automatically
+// (OneSignal tag filter enforced by the send-push edge function).
 const TOPICS = [
-  { value: 'announcements', label: 'Announcements (general)' },
-  { value: 'prayer_times', label: 'Prayer time changes' },
+  { value: 'prayer_times', label: 'Prayer Times (incl. iqamah changes)' },
   { value: 'events', label: 'Events' },
-  { value: 'jumuah', label: "Jumu'ah reminders" },
-  { value: 'donations', label: 'Donation appeals' },
-  { value: 'madrasah', label: 'Madrasah' },
   { value: 'stadium', label: 'Stadium event days' },
 ];
 
 export function PushComposer() {
-  const [topic, setTopic] = useState('announcements');
+  const [topic, setTopic] = useState('prayer_times');
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [url, setUrl] = useState('');

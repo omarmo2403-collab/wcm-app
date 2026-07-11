@@ -15,16 +15,12 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-// true = opt-out topic: devices that never wrote tags (fresh installs) are
-// included; only an explicit tag 'false' excludes them. false = opt-in
-// (madrasah): only devices that explicitly tagged 'true' receive it.
+// Exactly three user-facing topics (simplified 12 Jul 2026). All opt-out:
+// devices that never wrote tags (fresh installs) are included; only an
+// explicit tag 'false' (set by the in-app switch) excludes them.
 const TOPIC_DEFAULT_ON: Record<string, boolean> = {
   prayer_times: true,
-  jumuah: true,
   events: true,
-  donations: true,
-  madrasah: false,
-  announcements: true,
   stadium: true,
 };
 

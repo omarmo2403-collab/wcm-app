@@ -1,10 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import Stack from 'expo-router/stack';
 import { useCallback, useEffect, useState } from 'react';
 import * as Linking from 'expo-linking';
 import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { PRAYERS, type PrayerName } from '@wcm/shared';
 
-import { CardTitle, SectionCard } from '@/components/ui/section-card';
+import { ScreenTitle, SectionCard, CardTitle } from '@/components/ui/section-card';
 import { TOPICS, usePrefs } from '@/features/notifications/prefs';
 import {
   getPermissionStatus,
@@ -15,24 +15,13 @@ import {
 } from '@/features/notifications/scheduler';
 import { colors, radii, spacing } from '@/theme/tokens';
 
-const PRAYER_LABEL: Record<PrayerName, string> = {
-  fajr: 'Fajr',
-  zuhr: 'Zuhr',
-  asr: 'Asr',
-  maghrib: 'Maghrib',
-  isha: 'Isha',
-};
-
-const LEAD_OPTIONS = [5, 10, 15, 20, 30];
-const JUMUAH_OPTIONS = [
-  { value: 'off', label: 'Off' },
-  { value: 'first', label: '1st' },
-  { value: 'second', label: '2nd' },
-  { value: 'both', label: 'Both' },
-] as const;
-
+/**
+ * Simplified per Omar (12 Jul 2026): exactly three switches. Prayer Times is
+ * a master switch for local iqamah alerts AND remote prayer-time pushes;
+ * Events and Stadium control the matching admin push topics.
+ */
 export default function NotificationSettingsScreen() {
-  const { prefs, topics, setPrayerEnabled, setLeadMinutes, setJumuah, setTopic } = usePrefs();
+  const { topics, setTopic } = usePrefs();
   const [permission, setPermission] = useState<string>('checking…');
   const [scheduled, setScheduled] = useState<ScheduledSummary[]>([]);
 
@@ -53,20 +42,14 @@ export default function NotificationSettingsScreen() {
     <>
       <Stack.Screen options={{ title: 'Notifications' }} />
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-        {permission === 'unsupported' && (
-          <SectionCard style={styles.first}>
-            <Text style={styles.note}>
-              Notifications are not available in the web preview — use the mobile app.
-            </Text>
-          </SectionCard>
-        )}
+        <ScreenTitle>Push Notifications</ScreenTitle>
 
         {permission === 'denied' && (
-          <SectionCard style={styles.first}>
+          <SectionCard style={styles.cardFlush}>
             <CardTitle>Notifications are off</CardTitle>
             <Text style={styles.note}>
               Enable notifications for Wembley Central Masjid in your phone settings to receive
-              prayer alerts.
+              alerts.
             </Text>
             <Pressable style={styles.button} onPress={() => Linking.openSettings()}>
               <Text style={styles.buttonText}>Open phone settings</Text>
@@ -75,10 +58,10 @@ export default function NotificationSettingsScreen() {
         )}
 
         {permission === 'undetermined' && (
-          <SectionCard style={styles.first}>
-            <CardTitle>Get Adhan &amp; Iqamah alerts</CardTitle>
+          <SectionCard style={styles.cardFlush}>
+            <CardTitle>Turn on notifications</CardTitle>
             <Text style={styles.note}>
-              Allow notifications to be reminded {prefs.leadMinutes} minutes before every iqamah.
+              Allow notifications to be reminded 15 minutes before every iqamah.
             </Text>
             <Pressable style={styles.button} onPress={() => requestPermission().then(refresh)}>
               <Text style={styles.buttonText}>Enable notifications</Text>
@@ -86,68 +69,21 @@ export default function NotificationSettingsScreen() {
           </SectionCard>
         )}
 
-        <SectionCard style={permission === 'granted' ? styles.first : undefined}>
-          <CardTitle>Prayer reminders</CardTitle>
+        <SectionCard style={styles.cardFlush}>
           <Text style={styles.note}>
-            Reminders fire {prefs.leadMinutes} minutes before each iqamah.
+            Choose which notifications you&apos;d like to receive on your phone.
           </Text>
-          {PRAYERS.map((p) => (
-            <View key={p} style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>{PRAYER_LABEL[p]}</Text>
-              <Switch
-                value={prefs.enabled[p]}
-                onValueChange={(v) => setPrayerEnabled(p, v)}
-                trackColor={{ true: colors.primary }}
-                accessibilityLabel={`${PRAYER_LABEL[p]} reminder`}
-              />
-            </View>
-          ))}
         </SectionCard>
 
-        <SectionCard>
-          <CardTitle>Minutes before iqamah</CardTitle>
-          <View style={styles.chipRow}>
-            {LEAD_OPTIONS.map((m) => (
-              <Pressable
-                key={m}
-                style={[styles.chip, prefs.leadMinutes === m && styles.chipActive]}
-                onPress={() => setLeadMinutes(m)}
-              >
-                <Text style={[styles.chipText, prefs.leadMinutes === m && styles.chipTextActive]}>
-                  {m}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </SectionCard>
-
-        <SectionCard>
-          <CardTitle>Jumu&apos;ah reminder (Fridays)</CardTitle>
-          <View style={styles.chipRow}>
-            {JUMUAH_OPTIONS.map((o) => (
-              <Pressable
-                key={o.value}
-                style={[styles.chip, prefs.jumuah === o.value && styles.chipActive]}
-                onPress={() => setJumuah(o.value)}
-              >
-                <Text style={[styles.chipText, prefs.jumuah === o.value && styles.chipTextActive]}>
-                  {o.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </SectionCard>
-
-        <SectionCard>
-          <CardTitle>Masjid announcements</CardTitle>
-          <Text style={styles.note}>
-            Messages sent by the Masjid — choose which topics reach you.
-          </Text>
-          {TOPICS.map((t) => (
-            <View key={t.key} style={styles.toggleRow}>
-              <View style={styles.topicInfo}>
-                <Text style={styles.toggleLabel}>{t.label}</Text>
-                <Text style={styles.topicDesc}>{t.desc}</Text>
+        <SectionCard style={styles.cardFlush}>
+          {TOPICS.map((t, i) => (
+            <View key={t.key} style={[styles.row, i > 0 && styles.rowBorder]}>
+              <View style={[styles.iconWrap, { backgroundColor: `${t.color}1A` }]}>
+                <Ionicons name={t.icon} size={18} color={t.color} />
+              </View>
+              <View style={styles.rowInfo}>
+                <Text style={styles.rowLabel}>{t.label}</Text>
+                <Text style={styles.rowDesc}>{t.desc}</Text>
               </View>
               <Switch
                 value={topics[t.key]}
@@ -159,11 +95,11 @@ export default function NotificationSettingsScreen() {
           ))}
         </SectionCard>
 
-        {permission === 'granted' && (
-          <SectionCard>
+        {permission === 'granted' && topics.prayer_times && (
+          <SectionCard style={styles.cardFlush}>
             <CardTitle>Scheduled on this phone</CardTitle>
             <Text style={styles.note}>
-              {scheduled.length} alerts armed
+              {scheduled.length} prayer alerts armed
               {next?.fireAt
                 ? ` — next: ${next.title.replace(/ in \d+ minutes$/, '')} at ${next.fireAt.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' })}`
                 : ''}
@@ -172,6 +108,12 @@ export default function NotificationSettingsScreen() {
               <Text style={styles.buttonSecondaryText}>Send test notification</Text>
             </Pressable>
           </SectionCard>
+        )}
+
+        {permission === 'unsupported' && (
+          <Text style={styles.batteryNote}>
+            Notifications are not available in the web preview — use the mobile app.
+          </Text>
         )}
 
         {Platform.OS === 'android' && permission === 'granted' && (
@@ -187,56 +129,51 @@ export default function NotificationSettingsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBackground },
-  content: { paddingBottom: spacing.xl },
-  first: { marginTop: spacing.lg },
-  note: { fontSize: 13, color: colors.textSecondary, lineHeight: 19, marginBottom: spacing.sm },
+  content: { padding: spacing.lg, paddingTop: spacing.sm },
+  cardFlush: { marginHorizontal: 0, marginTop: spacing.sm },
+  note: { fontSize: 13.5, color: colors.textSecondary, lineHeight: 20 },
 
-  toggleRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
+    gap: 12,
+    paddingVertical: 12,
   },
-  toggleLabel: { fontSize: 14, fontWeight: '600', color: colors.text },
-  topicInfo: { flex: 1, paddingRight: spacing.md },
-  topicDesc: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
-
-  chipRow: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.cardBackground,
+  rowBorder: { borderTopWidth: 1, borderTopColor: '#EFF0F5' },
+  iconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, fontWeight: '600', color: colors.text },
-  chipTextActive: { color: colors.textOnPrimary },
+  rowInfo: { flex: 1 },
+  rowLabel: { fontSize: 15, fontWeight: '600', color: colors.text },
+  rowDesc: { fontSize: 12, color: colors.textMuted, marginTop: 1, lineHeight: 16 },
 
   button: {
     backgroundColor: colors.primary,
     borderRadius: radii.input,
-    paddingVertical: spacing.md,
     alignItems: 'center',
-    marginTop: spacing.xs,
+    paddingVertical: 12,
+    marginTop: spacing.md,
   },
-  buttonText: { color: colors.textOnPrimary, fontWeight: '700', fontSize: 14 },
+  buttonText: { color: colors.textOnPrimary, fontSize: 14, fontWeight: '700' },
   buttonSecondary: {
-    borderColor: colors.primary,
     borderWidth: 1,
+    borderColor: colors.primary,
     borderRadius: radii.input,
-    paddingVertical: spacing.md,
     alignItems: 'center',
-    marginTop: spacing.xs,
+    paddingVertical: 11,
+    marginTop: spacing.md,
   },
-  buttonSecondaryText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
-
+  buttonSecondaryText: { color: colors.primary, fontSize: 14, fontWeight: '700' },
   batteryNote: {
     fontSize: 12,
     color: colors.textMuted,
     textAlign: 'center',
-    marginTop: spacing.md,
-    marginHorizontal: spacing.xl,
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    lineHeight: 17,
   },
 });

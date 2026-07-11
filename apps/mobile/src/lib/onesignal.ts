@@ -37,23 +37,41 @@ export function initOneSignal(): void {
 const TAG_SYNC_DELAY_MS = 5_000;
 let pendingSync: ReturnType<typeof setTimeout> | null = null;
 
-export function syncTopicTags(topics: Record<string, boolean>): void {
+function writeTags(topics: Record<string, boolean>): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { OneSignal } = require('react-native-onesignal') as typeof import('react-native-onesignal');
+    // Explicit 'false' (never tag removal): the send function treats
+    // missing tags as subscribed for default-on topics, so opt-out must
+    // be a real value.
+    const tags = Object.fromEntries(
+      Object.entries(topics).map(([k, v]) => [k, v ? 'true' : 'false']),
+    );
+    OneSignal.User.addTags(tags);
+  } catch {
+    /* remote push unavailable */
+  }
+}
+
+/**
+ * Mount-time reconciliation is delayed past the OneSignal init window (the
+ * startup crash lesson); user-driven toggles pass immediate=true — init has
+ * long settled by then, and the opt-out must not be lost to a debounce if
+ * the user closes the app straight after flipping a switch.
+ */
+export function syncTopicTags(
+  topics: Record<string, boolean>,
+  opts: { immediate?: boolean } = {},
+): void {
   if (Platform.OS === 'web') return;
   if (pendingSync) clearTimeout(pendingSync);
+  if (opts.immediate) {
+    pendingSync = null;
+    writeTags(topics);
+    return;
+  }
   pendingSync = setTimeout(() => {
     pendingSync = null;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { OneSignal } = require('react-native-onesignal') as typeof import('react-native-onesignal');
-      // Explicit 'false' (never tag removal): the send function treats
-      // missing tags as subscribed for default-on topics, so opt-out must
-      // be a real value.
-      const tags = Object.fromEntries(
-        Object.entries(topics).map(([k, v]) => [k, v ? 'true' : 'false']),
-      );
-      OneSignal.User.addTags(tags);
-    } catch {
-      /* remote push unavailable */
-    }
+    writeTags(topics);
   }, TAG_SYNC_DELAY_MS);
 }
