@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -16,7 +18,6 @@ const ITEMS: { icon: IconName; label: string; slug: string }[] = [
   { icon: 'call-outline', label: 'Contact Us', slug: 'contact' },
   { icon: 'notifications-outline', label: 'Notifications', slug: 'notifications' },
   { icon: 'ribbon-outline', label: 'Our Services', slug: 'services' },
-  { icon: 'videocam-outline', label: '360° Virtual Tour', slug: 'tour' },
 ];
 
 export default function MoreScreen() {
@@ -55,6 +56,19 @@ export default function MoreScreen() {
           </Pressable>
         ))}
       </View>
+
+      <Pressable
+        style={({ pressed }) => [styles.credit, pressed && { opacity: 0.7 }]}
+        onPress={() => WebBrowser.openBrowserAsync('https://afom.co.uk')}
+        accessibilityLabel="App built by AFOM Solutions — opens afom.co.uk"
+      >
+        <Text style={styles.creditText}>App built by</Text>
+        <Image
+          source={require('../../../assets/brand/afom.png')}
+          style={styles.creditLogo}
+          contentFit="contain"
+        />
+      </Pressable>
     </ScrollView>
   );
 }
@@ -86,4 +100,13 @@ const styles = StyleSheet.create({
   },
   label: { flex: 1, fontSize: 15, fontWeight: '500', color: colors.text },
   pressed: { backgroundColor: colors.screenBackground },
+
+  credit: {
+    alignItems: 'center',
+    marginTop: spacing.xl,
+    paddingVertical: spacing.md,
+    gap: 6,
+  },
+  creditText: { fontSize: 12, color: colors.textMuted },
+  creditLogo: { width: 96, height: 18 },
 });
