@@ -30,7 +30,10 @@ export default function ContactScreen() {
       label: 'Address',
       value: contact?.address ?? '35-37 Ealing Road, Wembley, Middlesex, HA0 4AE',
       action: () =>
-        Linking.openURL('https://www.google.com/maps/search/?api=1&query=Wembley+Central+Masjid'),
+        Linking.openURL(
+          'https://www.google.com/maps/dir/?api=1&destination=' +
+            encodeURIComponent('Wembley Central Masjid, 35-37 Ealing Road, Wembley HA0 4AE'),
+        ),
     },
   ];
 

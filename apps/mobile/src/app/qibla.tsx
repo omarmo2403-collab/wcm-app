@@ -34,16 +34,34 @@ export default function QiblaScreen() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
     let sub: { remove: () => void } | undefined;
+    let cancelled = false;
     (async () => {
       // location refines the bearing; denied → Wembley fallback still correct locally
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const pos = await Location.getLastKnownPositionAsync() ??
           await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
-        if (pos) setBearing(qiblaBearing(pos.coords.latitude, pos.coords.longitude));
+        if (pos && !cancelled) setBearing(qiblaBearing(pos.coords.latitude, pos.coords.longitude));
+        // Preferred compass: OS sensor fusion via watchHeadingAsync — tilt-
+        // compensated and declination-corrected true heading, far more
+        // accurate than the raw magnetometer maths below.
+        try {
+          const headingSub = await Location.watchHeadingAsync((h) => {
+            const value = h.trueHeading >= 0 ? h.trueHeading : h.magHeading;
+            if (value >= 0) {
+              setSensorOk(true);
+              setHeading(value);
+            }
+          });
+          if (cancelled) headingSub.remove();
+          else sub = headingSub;
+          return;
+        } catch {
+          /* fall through to raw magnetometer */
+        }
       }
       const available = await Magnetometer.isAvailableAsync();
-      if (!available) return;
+      if (!available || cancelled) return;
       setSensorOk(true);
       Magnetometer.setUpdateInterval(120);
       sub = Magnetometer.addListener(({ x, y }) => {
@@ -53,7 +71,10 @@ export default function QiblaScreen() {
         setHeading((450 - angle) % 360);
       });
     })();
-    return () => sub?.remove();
+    return () => {
+      cancelled = true;
+      sub?.remove();
+    };
   }, []);
 
   const needleRotation = heading == null ? 0 : (bearing - heading + 360) % 360;
