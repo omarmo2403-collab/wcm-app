@@ -2,7 +2,6 @@ import { ScrollView, StyleSheet } from 'react-native';
 
 import {
   BannerCarousel,
-  GalleryPreview,
   NoticeStrip,
   QuickActions,
 } from '@/features/home/home-sections';
@@ -19,7 +18,6 @@ export default function HomeScreen() {
       <QuickActions />
       <NoticeStrip />
       <BannerCarousel />
-      <GalleryPreview />
     </ScrollView>
   );
 }
