@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
 import { useJumuahTimes, usePrayerTimes } from '@/features/prayer-times/queries';
+import { initAnalytics, track } from '@/lib/analytics';
 import { initOneSignal } from '@/lib/onesignal';
 import { registerBackgroundSync } from './background';
 import { usePrefs } from './prefs';
@@ -21,6 +22,7 @@ export function NotificationSync() {
     configureNotificationHandling();
     registerBackgroundSync();
     initOneSignal();
+    initAnalytics();
   }, []);
 
   useEffect(() => {
@@ -28,7 +30,9 @@ export function NotificationSync() {
     const days = timetable.data;
     const sittings = jumuah.data;
 
-    syncPrayerNotifications(days, sittings, prefs);
+    syncPrayerNotifications(days, sittings, prefs).then((count) => {
+      if (count > 0) track('notifications_rescheduled', { count, first_date: days[0]?.date });
+    });
 
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
