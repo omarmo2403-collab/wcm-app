@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "722864595911",
+    "project_id": "wcm-mobileapp-847da",
+    "storage_bucket": "wcm-mobileapp-847da.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:722864595911:android:4c732f274a3cfeea9aafe2",
+        "android_client_info": {
+          "package_name": "com.afomsolutions.wcm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAA54pX_hZb15HpeUK5eWRr_Qd8hzQTdjQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

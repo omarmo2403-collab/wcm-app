@@ -26,6 +26,7 @@ export const colors = {
   screenBackground: palette.greyBg,
   cardBackground: palette.white,
   prayerWidgetBackground: palette.cream,
+  prayerWidgetHighlight: palette.creamHalf,
   text: palette.text,
   textSecondary: palette.textLight,
   textMuted: palette.textMuted,
