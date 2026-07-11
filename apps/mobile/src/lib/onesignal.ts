@@ -16,6 +16,10 @@ export function initOneSignal(): void {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { OneSignal } = require('react-native-onesignal') as typeof import('react-native-onesignal');
     OneSignal.initialize(ONESIGNAL_APP_ID);
+    // Android 13+ shows the system permission dialog; earlier versions and
+    // already-granted devices resolve silently. Safe here: it queues on the
+    // native module thread AFTER initialize.
+    OneSignal.Notifications.requestPermission(false);
   } catch {
     // module not present (e.g. Expo Go) — remote push simply unavailable
   }
@@ -30,7 +34,7 @@ export function initOneSignal(): void {
  *  (seen on MIUI, 11 Jul 2026). Tag work is therefore delayed well past the
  *  init window and never runs during startup.
  */
-const TAG_SYNC_DELAY_MS = 12_000;
+const TAG_SYNC_DELAY_MS = 5_000;
 let pendingSync: ReturnType<typeof setTimeout> | null = null;
 
 export function syncTopicTags(topics: Record<string, boolean>): void {
@@ -41,12 +45,13 @@ export function syncTopicTags(topics: Record<string, boolean>): void {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { OneSignal } = require('react-native-onesignal') as typeof import('react-native-onesignal');
-      const on = Object.fromEntries(
-        Object.entries(topics).filter(([, v]) => v).map(([k]) => [k, 'true']),
+      // Explicit 'false' (never tag removal): the send function treats
+      // missing tags as subscribed for default-on topics, so opt-out must
+      // be a real value.
+      const tags = Object.fromEntries(
+        Object.entries(topics).map(([k, v]) => [k, v ? 'true' : 'false']),
       );
-      const off = Object.keys(topics).filter((k) => !topics[k]);
-      if (Object.keys(on).length > 0) OneSignal.User.addTags(on);
-      if (off.length > 0) OneSignal.User.removeTags(off);
+      OneSignal.User.addTags(tags);
     } catch {
       /* remote push unavailable */
     }
