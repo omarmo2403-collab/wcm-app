@@ -160,7 +160,7 @@ Legend: ✅ ship in v1 · 🔶 v1 but simplified vs proposal · 🕐 phase 2 · 
 | Qibla/sensors | `expo-location` + `expo-sensors` | Managed-workflow native APIs; bearing math is ~20 lines. |
 | Hijri | `@umalqura/core` + config offset | Pure JS, no Hermes `Intl` dependency (§3.3). |
 | Images | `expo-image` | Built-in disk caching, blurhash placeholders for gallery/banners. |
-| Admin dashboard | **Vite + React + TypeScript + shadcn/ui**, hosted on **Cloudflare Pages (free)**, Supabase Auth | Internal tool: no SSR/SEO need, so a SPA beats Next.js for simplicity; Cloudflare Pages has no commercial-use restriction (Vercel Hobby does). Same Zod schemas + generated Supabase types as the app. |
+| Admin dashboard | **Vite + React + TypeScript**, Supabase Auth (email link). **Hosted on GitHub Pages under /wcm-app/admin/** — deployed as-built 11 Jul 2026; Cloudflare Pages remains the optional later move for a custom admin domain + Turnstile login check | Internal tool: no SSR/SEO need, so a SPA beats Next.js for simplicity. GitHub Pages chosen at build time because the repo's deploy pipeline already existed and needed no new credentials; functionally equivalent for a static SPA (security lives in Supabase RLS, not the host). |
 | CI/CD | **EAS Build + EAS Submit + EAS Update** (free tier) + GitHub Actions (lint/typecheck/test) | Free tier ≈30 builds/mo — ample for this cadence. OTA updates via EAS Update (1k MAU free… upgrade only when exceeded). |
 | Testing | Jest + React Native Testing Library; Maestro for 3–4 smoke flows | Budget-proportionate: unit-test prayer-time logic hard (it's the product), smoke-test navigation. |
 | Tooling | pnpm workspaces monorepo, ESLint + Prettier, Supabase CLI migrations, generated DB types | `supabase gen types typescript` keeps app/admin/DB in lockstep. |
@@ -405,7 +405,7 @@ Register services under a dedicated shared mailbox (e.g. `wcmapp.admin@gmail.com
 | 2 | Expo (EAS) | Builds, submission, OTA updates | ✅ Done — organization **`wcm-mobileapp`** (Omar's personal login: `@wcm-app`). App config MUST set `"owner": "wcm-mobileapp"` in `app.json` so the project belongs to the org |
 | 3 | Firebase | **FCM only** (Android push transport for OneSignal) | Generate Service Account JSON; nothing else from Firebase is used. ⚠️ **Hard-won gotcha:** the service account needs **two** IAM roles in Google Cloud Console — "Firebase Cloud Messaging API Admin" AND "Firebase Viewer" — and the Firebase Cloud Messaging API must be enabled on the project. Missing any of these makes OneSignal reject the JSON with an unhelpful generic "Invalid request". (Cost a full evening on 11 Jul 2026.) |
 | 4 | OneSignal | Remote push | Needs Firebase JSON (#3) + APNs .p8 key from Apple account |
-| 5 | Cloudflare | Admin hosting (Pages) | Optionally add Turnstile CAPTCHA on the admin login (native Supabase Auth integration) |
+| 5 | Cloudflare | (Held in reserve) custom admin domain + Turnstile login CAPTCHA | Account created; admin currently ships via GitHub Pages instead — revisit at M5 if a branded admin URL is wanted |
 | 6 | Sentry | Crashes | Two projects: `wcm-mobile`, `wcm-admin` |
 | 7 | PostHog | Analytics + re-sync telemetry | **EU Cloud** at signup |
 
