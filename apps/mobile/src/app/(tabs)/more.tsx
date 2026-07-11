@@ -60,9 +60,9 @@ export default function MoreScreen() {
       <Pressable
         style={({ pressed }) => [styles.credit, pressed && { opacity: 0.7 }]}
         onPress={() => WebBrowser.openBrowserAsync('https://afom.co.uk')}
-        accessibilityLabel="App built by AFOM Solutions — opens afom.co.uk"
+        accessibilityLabel="App built and maintained by AFOM Solutions — opens afom.co.uk"
       >
-        <Text style={styles.creditText}>App built by</Text>
+        <Text style={styles.creditText}>App built and maintained by</Text>
         <Image
           source={require('../../../assets/brand/afom.png')}
           style={styles.creditLogo}
