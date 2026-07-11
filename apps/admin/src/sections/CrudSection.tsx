@@ -117,7 +117,8 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
     orderBy: 'sort_order',
     columns: [
       { key: 'title', label: 'Title', type: 'text' },
-      { key: 'description', label: 'Description', type: 'text' },
+      { key: 'description', label: 'Short description', type: 'text' },
+      { key: 'body', label: 'Page content', type: 'textarea', listHidden: true },
       { key: 'icon', label: 'Icon', type: 'text' },
       { key: 'sort_order', label: 'Order', type: 'number' },
       { key: 'is_active', label: 'Active', type: 'bool' },

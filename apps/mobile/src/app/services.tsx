@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Stack from 'expo-router/stack';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 
@@ -13,6 +14,7 @@ const serviceSchema = z.object({
   title: z.string(),
   description: z.string(),
   icon: z.string(),
+  body: z.string(),
 });
 
 const ICON: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
@@ -23,14 +25,14 @@ const ICON: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
   school: 'school',
 };
 
-function useServices() {
+export function useServices() {
   return useQuery({
     queryKey: ['services'],
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('services')
-        .select('id,title,description,icon')
+        .select('id,title,description,icon,body')
         .eq('is_active', true)
         .order('sort_order');
       if (error) throw error;
@@ -41,6 +43,7 @@ function useServices() {
 
 export default function ServicesScreen() {
   const services = useServices();
+  const router = useRouter();
   return (
     <>
       <Stack.Screen options={{ title: 'Services' }} />
@@ -49,7 +52,12 @@ export default function ServicesScreen() {
         {services.isPending && <ActivityIndicator color={colors.primary} />}
         <View style={styles.grid}>
           {services.data?.map((s) => (
-            <View key={s.id} style={styles.card}>
+            <Pressable
+              key={s.id}
+              style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+              onPress={() => s.body && router.push(`/service/${s.id}` as never)}
+              accessibilityLabel={`${s.title} — details`}
+            >
               <View style={styles.iconWrap}>
                 <MaterialCommunityIcons
                   name={ICON[s.icon] ?? 'star'}
@@ -59,7 +67,7 @@ export default function ServicesScreen() {
               </View>
               <Text style={styles.title}>{s.title}</Text>
               <Text style={styles.desc}>{s.description}</Text>
-            </View>
+            </Pressable>
           ))}
         </View>
       </ScrollView>
@@ -69,6 +77,7 @@ export default function ServicesScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBackground },
+  pressed: { opacity: 0.8 },
   content: { padding: spacing.lg },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   // prototype .service-card: cream tile; .service-icon: pale mint square
