@@ -11,6 +11,11 @@ export function CardTitle({ children }: { children: string }) {
   return <Text style={styles.title}>{children}</Text>;
 }
 
+/** In-content screen heading (prototype .screen-title-bar h2: 22/700 dark) */
+export function ScreenTitle({ children }: { children: string }) {
+  return <Text style={styles.screenTitle}>{children}</Text>;
+}
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.cardBackground,
@@ -25,6 +30,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
+    marginBottom: spacing.sm,
+  },
+  // parent containers provide horizontal padding
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 4,
     marginBottom: spacing.sm,
   },
 });

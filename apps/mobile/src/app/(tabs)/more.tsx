@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { ScreenTitle } from '@/components/ui/section-card';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -23,6 +24,7 @@ export default function MoreScreen() {
   const router = useRouter();
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <ScreenTitle>More</ScreenTitle>
       <View style={styles.menu}>
         {ITEMS.map((item, i) => (
           <Pressable
@@ -47,9 +49,11 @@ export default function MoreScreen() {
               else router.push({ pathname: '/coming-soon', params: { title: item.label } });
             }}
           >
-            <Ionicons name={item.icon} size={20} color={colors.primary} />
+            <View style={styles.iconWrap}>
+              <Ionicons name={item.icon} size={17} color={colors.primary} />
+            </View>
             <Text style={styles.label}>{item.label}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </Pressable>
         ))}
       </View>
@@ -59,22 +63,29 @@ export default function MoreScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBackground },
-  content: { padding: spacing.lg },
+  content: { padding: spacing.lg, paddingTop: spacing.sm },
   menu: {
     backgroundColor: colors.cardBackground,
     borderRadius: radii.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    paddingHorizontal: spacing.lg,
     overflow: 'hidden',
   },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    paddingVertical: 14,
+    gap: 14,
   },
-  itemBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  label: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.text },
+  itemBorder: { borderBottomWidth: 1, borderBottomColor: '#EFF0F5' },
+  // prototype .more-item icon: 36px pale mint square, radius 10
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(21,151,120,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  label: { flex: 1, fontSize: 15, fontWeight: '500', color: colors.text },
   pressed: { backgroundColor: colors.screenBackground },
 });

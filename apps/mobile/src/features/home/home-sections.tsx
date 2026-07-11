@@ -54,7 +54,7 @@ export function QuickActions() {
 export function NoticeStrip() {
   const notices = useNotices();
   const router = useRouter();
-  const { dismissedNoticeIds, dismissNotice } = useUi();
+  const { dismissedNoticeIds } = useUi();
 
   const notice = (notices.data ?? []).find((n) => !dismissedNoticeIds.includes(n.id));
   if (!notice) return null;
@@ -67,15 +67,14 @@ export function NoticeStrip() {
     }
   };
 
+  // prototype .notice-strip: amber left accent + chevron link, no dismiss
   return (
     <Pressable style={({ pressed }) => [styles.notice, pressed && styles.pressed]} onPress={open}>
-      <MaterialCommunityIcons name="car" size={16} color={colors.primaryPressed} />
+      <MaterialCommunityIcons name="car" size={16} color="#F9A825" />
       <Text style={styles.noticeText} numberOfLines={2}>
         {notice.message}
       </Text>
-      <Pressable hitSlop={8} onPress={() => dismissNotice(notice.id)} accessibilityLabel="Dismiss notice">
-        <Ionicons name="close" size={16} color={colors.textMuted} />
-      </Pressable>
+      <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
     </Pressable>
   );
 }
@@ -234,20 +233,21 @@ const styles = StyleSheet.create({
   },
   actionLabel: { fontSize: 11, fontWeight: '500', color: colors.textSecondary },
 
+  // prototype: #FFF8E1 bg, 3px #F9A825 left border, radius-sm, 12px text
   notice: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: '#FFF6E5',
-    borderColor: '#F2D8A7',
-    borderWidth: 1,
+    gap: 10,
+    backgroundColor: '#FFF8E1',
+    borderLeftColor: '#F9A825',
+    borderLeftWidth: 3,
     borderRadius: radii.input,
     marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    marginTop: spacing.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  noticeText: { flex: 1, fontSize: 12.5, color: colors.text, fontWeight: '600' },
+  noticeText: { flex: 1, fontSize: 12, color: colors.text },
 
   // prototype .banner-img: min-height 160, content bottom-aligned, CTA pill
   banner: {

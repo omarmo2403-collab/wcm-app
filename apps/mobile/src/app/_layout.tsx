@@ -26,11 +26,14 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <NotificationSync />
         <StatusBar style="light" />
+      {/* prototype sub-screen header: white bar, green 15px title, dark arrow */}
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: colors.textOnPrimary,
-          headerTitleStyle: { fontWeight: '700' },
+          headerStyle: { backgroundColor: colors.cardBackground },
+          headerTintColor: colors.text,
+          headerTitleStyle: { fontWeight: '700', fontSize: 15, color: colors.primary },
+          headerTitleAlign: 'center',
+          headerShadowVisible: false,
           contentStyle: { backgroundColor: colors.screenBackground },
         }}
       >

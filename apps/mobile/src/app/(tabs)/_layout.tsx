@@ -33,39 +33,34 @@ function BrandHeaderTitle() {
 }
 
 const headerStyles = StyleSheet.create({
-  wrap: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  // prototype: 40px mark + 13px wordmark; scaled up ~15% for phone density
-  icon: { width: 78, height: 46 },
-  text: { width: 196, height: 15 },
+  // prototype .app-header: 56px bar, 40px mark, 13px wordmark raised 4px
+  wrap: { flexDirection: 'row', alignItems: 'center', gap: 9, height: 56 },
+  icon: { width: 76, height: 40 },
+  text: { width: 170, height: 13, marginBottom: 4 },
 });
 
 export default function TabLayout() {
   return (
     <Tabs
+      // prototype: the brand header is persistent across ALL tabs; screen
+      // titles (.screen-title-bar) live inside each screen's content
       screenOptions={{
         tabBarActiveTintColor: colors.tabActive,
         tabBarInactiveTintColor: colors.tabInactive,
         headerStyle: { backgroundColor: colors.cardBackground },
-        // prototype .screen-title-bar h2: 22px/700, dark text, left aligned
-        headerTitleStyle: { color: colors.text, fontWeight: '700', fontSize: 22 },
-        headerTitleAlign: 'left',
+        headerTitle: () => <BrandHeaderTitle />,
+        headerTitleAlign: 'center',
         headerShadowVisible: false,
         sceneStyle: { backgroundColor: colors.screenBackground },
       }}
     >
       <Tabs.Screen
         name="index"
-        options={{
-          title: 'Wembley Central Masjid',
-          headerTitle: () => <BrandHeaderTitle />,
-          headerTitleAlign: 'center',
-          tabBarLabel: 'Home',
-          tabBarIcon: tabIcon('home'),
-        }}
+        options={{ title: 'Wembley Central Masjid', tabBarLabel: 'Home', tabBarIcon: tabIcon('home') }}
       />
       <Tabs.Screen
         name="events"
-        options={{ title: 'Events', tabBarIcon: tabIcon('calendar') }}
+        options={{ title: 'Upcoming Events', tabBarLabel: 'Events', tabBarIcon: tabIcon('calendar') }}
       />
       <Tabs.Screen
         name="donate"

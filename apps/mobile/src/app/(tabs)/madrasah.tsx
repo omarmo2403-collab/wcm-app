@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { useMadrasahClasses } from '@/features/content/queries';
 import { useAppConfig } from '@/features/prayer-times/config';
-import { CardTitle, SectionCard } from '@/components/ui/section-card';
+import { CardTitle, ScreenTitle, SectionCard } from '@/components/ui/section-card';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 export default function MadrasahScreen() {
@@ -13,6 +13,7 @@ export default function MadrasahScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <ScreenTitle>Madrasah</ScreenTitle>
       <SectionCard style={styles.first}>
         <Text style={styles.intro}>
           Wembley Central Masjid Madrassah offers beginner through advanced classes in various
