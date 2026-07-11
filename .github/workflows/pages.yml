@@ -25,9 +25,13 @@ jobs:
         run: |
           node -e "const p=require('./app.json'); p.expo.experiments=p.expo.experiments||{}; p.expo.experiments.baseUrl='/wcm-app'; require('fs').writeFileSync('app.json', JSON.stringify(p,null,2))"
           pnpm exec expo export --platform web
-      - name: SPA fallback + keep original prototype at /prototype/
+      - name: Build admin dashboard (served under /wcm-app/admin/)
+        working-directory: apps/admin
+        run: ADMIN_BASE=/wcm-app/admin/ pnpm exec vite build
+      - name: SPA fallback, admin at /admin/, prototype at /prototype/
         run: |
           cp apps/mobile/dist/index.html apps/mobile/dist/404.html
+          cp -r apps/admin/dist apps/mobile/dist/admin
           cp -r prototype apps/mobile/dist/prototype
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3

@@ -10,6 +10,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.110.2
+        version: 2.110.2
       react:
         specifier: ^19.2.7
         version: 19.2.7
