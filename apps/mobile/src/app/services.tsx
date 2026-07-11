@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 
+import { ScreenTitle } from '@/components/ui/section-card';
 import { supabase } from '@/lib/supabase';
 import { colors, radii, spacing } from '@/theme/tokens';
 
@@ -42,8 +43,9 @@ export default function ServicesScreen() {
   const services = useServices();
   return (
     <>
-      <Stack.Screen options={{ title: 'Our Services' }} />
+      <Stack.Screen options={{ title: 'Services' }} />
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+        <ScreenTitle>Our Services</ScreenTitle>
         {services.isPending && <ActivityIndicator color={colors.primary} />}
         <View style={styles.grid}>
           {services.data?.map((s) => (
@@ -51,8 +53,8 @@ export default function ServicesScreen() {
               <View style={styles.iconWrap}>
                 <MaterialCommunityIcons
                   name={ICON[s.icon] ?? 'star'}
-                  size={24}
-                  color={colors.textOnPrimary}
+                  size={20}
+                  color={colors.primary}
                 />
               </View>
               <Text style={styles.title}>{s.title}</Text>
@@ -69,24 +71,23 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBackground },
   content: { padding: spacing.lg },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+  // prototype .service-card: cream tile; .service-icon: pale mint square
   card: {
     width: '47.5%',
-    backgroundColor: colors.cardBackground,
+    backgroundColor: '#FCF7EE',
     borderRadius: radii.card,
     padding: spacing.lg,
     alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
   },
   iconWrap: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
+    borderRadius: 12,
+    backgroundColor: 'rgba(21,151,120,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
-  title: { fontSize: 14, fontWeight: '700', color: colors.text, textAlign: 'center' },
+  title: { fontSize: 14, fontWeight: '600', color: colors.text, textAlign: 'center' },
   desc: { fontSize: 12, color: colors.textSecondary, textAlign: 'center', marginTop: 4 },
 });
