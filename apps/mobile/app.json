@@ -53,7 +53,8 @@
           "icon": "./assets/images/notification-icon.png",
           "color": "#159778"
         }
-      ]
+      ],
+      "./plugins/without-expo-fcm.js"
     ],
     "experiments": {
       "typedRoutes": true,
