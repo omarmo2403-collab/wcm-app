@@ -14,6 +14,10 @@ import {
   type ViewToken,
 } from 'react-native';
 
+import { useQuery } from '@tanstack/react-query';
+import { z } from 'zod';
+
+import { supabase } from '@/lib/supabase';
 import { colors, radii, spacing } from '@/theme/tokens';
 import { mediaUrl, useBanners, useGallery, useNotices, type Banner } from './queries';
 import { useUi } from '@/stores/ui';
@@ -86,6 +90,80 @@ export function NoticeStrip() {
       </View>
       <Ionicons name="chevron-forward" size={18} color="#fff" />
     </Pressable>
+  );
+}
+
+/* ---------- Latest news strip (admin News section -> Home) ---------- */
+
+const newsPreviewSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  body: z.string(),
+  published_at: z.string().nullable(),
+});
+
+function useLatestNews() {
+  return useQuery({
+    queryKey: ['news_latest'],
+    staleTime: 2 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('news')
+        .select('id,title,body,published_at')
+        .eq('is_published', true)
+        .order('published_at', { ascending: false })
+        .limit(2);
+      if (error) throw error;
+      return data.map((r) => newsPreviewSchema.parse(r));
+    },
+  });
+}
+
+export function NewsStrip() {
+  const news = useLatestNews();
+  const router = useRouter();
+  if (!news.data || news.data.length === 0) return null;
+
+  return (
+    <View style={styles.newsSection}>
+      <View style={styles.newsHeader}>
+        <Text style={styles.newsHeading}>Latest News</Text>
+        <Pressable onPress={() => router.push('/news' as never)} accessibilityLabel="All news">
+          <Text style={styles.newsSeeAll}>
+            See All <Ionicons name="chevron-forward" size={12} color={colors.primary} />
+          </Text>
+        </Pressable>
+      </View>
+      {news.data.map((n) => (
+        <Pressable
+          key={n.id}
+          style={({ pressed }) => [styles.newsCard, pressed && styles.pressed]}
+          onPress={() => router.push('/news' as never)}
+        >
+          <View style={styles.newsIcon}>
+            <Ionicons name="newspaper" size={16} color={colors.primary} />
+          </View>
+          <View style={styles.newsInfo}>
+            <Text style={styles.newsTitle} numberOfLines={1}>
+              {n.title}
+            </Text>
+            <Text style={styles.newsBody} numberOfLines={2}>
+              {n.body}
+            </Text>
+            {n.published_at ? (
+              <Text style={styles.newsDate}>
+                {new Date(n.published_at).toLocaleDateString('en-GB', {
+                  day: 'numeric',
+                  month: 'short',
+                  timeZone: 'Europe/London',
+                })}
+              </Text>
+            ) : null}
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </Pressable>
+      ))}
+    </View>
   );
 }
 
@@ -304,6 +382,37 @@ const styles = StyleSheet.create({
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: spacing.sm },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.border },
   dotActive: { backgroundColor: colors.primary },
+
+  newsSection: { marginTop: spacing.lg, paddingHorizontal: spacing.lg },
+  newsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  newsHeading: { fontSize: 17, fontWeight: '700', color: colors.text },
+  newsSeeAll: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  newsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.cardBackground,
+    borderRadius: radii.card,
+    padding: 12,
+    marginBottom: spacing.sm,
+  },
+  newsIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: 'rgba(21,151,120,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  newsInfo: { flex: 1 },
+  newsTitle: { fontSize: 13.5, fontWeight: '700', color: colors.text },
+  newsBody: { fontSize: 12, color: colors.textSecondary, lineHeight: 16, marginTop: 1 },
+  newsDate: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
 
   gallerySection: { marginTop: spacing.xl, marginBottom: spacing.lg },
   galleryHeader: {
