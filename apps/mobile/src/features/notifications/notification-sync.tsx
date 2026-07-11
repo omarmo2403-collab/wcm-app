@@ -19,16 +19,19 @@ export function NotificationSync() {
   const prefs = usePrefs((s) => s.prefs);
   const topics = usePrefs((s) => s.topics);
 
-  useEffect(() => {
-    syncTopicTags(topics);
-  }, [topics]);
-
+  // Init MUST be declared before the tag-sync effect: effects run in
+  // declaration order, and OneSignal.User.addTags before initialize() is a
+  // fatal native-thread crash (the 21:24 logcat, MIUI, 11 Jul 2026).
   useEffect(() => {
     configureNotificationHandling();
     registerBackgroundSync();
     initOneSignal();
     initAnalytics();
   }, []);
+
+  useEffect(() => {
+    syncTopicTags(topics);
+  }, [topics]);
 
   useEffect(() => {
     if (!timetable.data || !jumuah.data) return;
