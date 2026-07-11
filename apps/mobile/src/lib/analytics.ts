@@ -9,7 +9,8 @@ import { Platform } from 'react-native';
 const POSTHOG_KEY = 'phc_vjuYkoAvoEqnFY5yBAZTzwURW22ooBB9GsVXAG8sjPr7';
 const POSTHOG_HOST = 'https://eu.i.posthog.com';
 
-type Client = { capture: (event: string, properties?: Record<string, unknown>) => void };
+type Props = Record<string, string | number | boolean | null>;
+type Client = { capture: (event: string, properties?: Props) => void };
 let client: Client | null = null;
 
 export function initAnalytics(): void {
@@ -24,7 +25,7 @@ export function initAnalytics(): void {
   }
 }
 
-export function track(event: string, properties?: Record<string, unknown>): void {
+export function track(event: string, properties?: Props): void {
   try {
     client?.capture(event, properties);
   } catch {

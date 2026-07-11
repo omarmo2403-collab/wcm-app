@@ -31,7 +31,7 @@ export function NotificationSync() {
     const sittings = jumuah.data;
 
     syncPrayerNotifications(days, sittings, prefs).then((count) => {
-      if (count > 0) track('notifications_rescheduled', { count, first_date: days[0]?.date });
+      if (count > 0) track('notifications_rescheduled', { count, first_date: days[0]?.date ?? null });
     });
 
     const sub = AppState.addEventListener('change', (state) => {
