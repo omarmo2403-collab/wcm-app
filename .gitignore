@@ -4,3 +4,5 @@ node_modules/
 package-lock.json
 create_proposal.js
 afom-logo.png
+.env.local
+~$*

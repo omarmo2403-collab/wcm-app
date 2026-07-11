@@ -1,5 +1,12 @@
 {
-  "dependencies": {
-    "docx": "^9.6.1"
+  "name": "wcm-monorepo",
+  "private": true,
+  "packageManager": "pnpm@11.11.0",
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "mobile": "pnpm --filter mobile start",
+    "admin": "pnpm --filter admin dev"
   }
 }

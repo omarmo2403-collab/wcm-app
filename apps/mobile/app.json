@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Wembley Central Masjid",
+    "slug": "wcm-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "wcm",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.afomsolutions.wcm",
+      "supportsTablet": false,
+      "icon": "./assets/expo.icon"
+    },
+    "android": {
+      "package": "com.afomsolutions.wcm",
+      "adaptiveIcon": {
+        "backgroundColor": "#159778",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#159778",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 96
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
