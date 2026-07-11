@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { supabase } from '../lib/supabase';
 
-type ColumnType = 'text' | 'textarea' | 'number' | 'bool' | 'datetime' | 'time' | 'select' | 'image';
+type ColumnType = 'text' | 'textarea' | 'number' | 'bool' | 'datetime' | 'time' | 'select' | 'image' | 'video';
 
 const MEDIA_URL = 'https://gjffozmcbdtafdsxifyq.supabase.co/storage/v1/object/public/media/';
 
@@ -73,11 +73,14 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
   banners: {
     table: 'banners',
     title: 'Home Banners',
+    note: 'Upload a poster image to show it full-size in the carousel (like event posters). Add a video (YouTube link or upload) for a playable video card. Leave both empty for a text banner.',
     orderBy: 'sort_order',
     columns: [
-      { key: 'badge', label: 'Badge', type: 'text' },
+      { key: 'badge', label: 'Badge (text banners)', type: 'text' },
       { key: 'title', label: 'Title', type: 'text' },
-      { key: 'subtitle', label: 'Subtitle', type: 'text' },
+      { key: 'subtitle', label: 'Subtitle (text banners)', type: 'text' },
+      { key: 'image_path', label: 'Poster image', type: 'image', listHidden: true },
+      { key: 'video_url', label: 'Video (YouTube link or upload)', type: 'video', listHidden: true },
       { key: 'action_type', label: 'Action', type: 'select', options: ['none', 'screen', 'url'] },
       { key: 'action_target', label: 'Target', type: 'text' },
       { key: 'sort_order', label: 'Order', type: 'number' },
@@ -215,6 +218,37 @@ function Editor({
                 <option key={o}>{o}</option>
               ))}
             </select>
+          ) : c.type === 'video' ? (
+            <div>
+              <input
+                type="text"
+                placeholder="Paste a YouTube link, or upload a video file below"
+                value={String(values[c.key] ?? '')}
+                onChange={(e) => setValues((v) => ({ ...v, [c.key]: e.target.value }))}
+              />
+              <input
+                type="file"
+                accept="video/mp4,video/webm"
+                style={{ marginTop: 6 }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 50 * 1024 * 1024) {
+                    setErr('Video too large — keep uploads under 50 MB (or use YouTube).');
+                    return;
+                  }
+                  setErr('');
+                  const path = `videos/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+                  const { error } = await supabase.storage.from('media').upload(path, file, {
+                    cacheControl: '31536000',
+                    upsert: false,
+                  });
+                  if (error) setErr(`Video upload failed: ${error.message}`);
+                  else setValues((v) => ({ ...v, [c.key]: MEDIA_URL + path }));
+                  e.target.value = '';
+                }}
+              />
+            </div>
           ) : c.type === 'image' ? (
             <div>
               {values[c.key] ? (

@@ -16,6 +16,7 @@ const bannerSchema = z.object({
   action_type: z.enum(['screen', 'url', 'none']),
   action_target: z.string().nullable(),
   image_path: z.string().nullable(),
+  video_url: z.string().nullable(),
 });
 export type Banner = z.infer<typeof bannerSchema>;
 
@@ -26,7 +27,7 @@ export function useBanners() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('banners')
-        .select('id,badge,title,subtitle,action_type,action_target,image_path')
+        .select('id,badge,title,subtitle,action_type,action_target,image_path,video_url')
         .eq('is_active', true)
         .order('sort_order');
       if (error) throw error;

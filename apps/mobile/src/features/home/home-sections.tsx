@@ -14,10 +14,7 @@ import {
   type ViewToken,
 } from 'react-native';
 
-import { useQuery } from '@tanstack/react-query';
-import { z } from 'zod';
 
-import { supabase } from '@/lib/supabase';
 import { colors, radii, spacing } from '@/theme/tokens';
 import { mediaUrl, useBanners, useGallery, useNotices, type Banner } from './queries';
 import { useUi } from '@/stores/ui';
@@ -93,80 +90,6 @@ export function NoticeStrip() {
   );
 }
 
-/* ---------- Latest news strip (admin News section -> Home) ---------- */
-
-const newsPreviewSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  body: z.string(),
-  published_at: z.string().nullable(),
-});
-
-function useLatestNews() {
-  return useQuery({
-    queryKey: ['news_latest'],
-    staleTime: 2 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('news')
-        .select('id,title,body,published_at')
-        .eq('is_published', true)
-        .order('published_at', { ascending: false })
-        .limit(2);
-      if (error) throw error;
-      return data.map((r) => newsPreviewSchema.parse(r));
-    },
-  });
-}
-
-export function NewsStrip() {
-  const news = useLatestNews();
-  const router = useRouter();
-  if (!news.data || news.data.length === 0) return null;
-
-  return (
-    <View style={styles.newsSection}>
-      <View style={styles.newsHeader}>
-        <Text style={styles.newsHeading}>Latest News</Text>
-        <Pressable onPress={() => router.push('/news' as never)} accessibilityLabel="All news">
-          <Text style={styles.newsSeeAll}>
-            See All <Ionicons name="chevron-forward" size={12} color={colors.primary} />
-          </Text>
-        </Pressable>
-      </View>
-      {news.data.map((n) => (
-        <Pressable
-          key={n.id}
-          style={({ pressed }) => [styles.newsCard, pressed && styles.pressed]}
-          onPress={() => router.push('/news' as never)}
-        >
-          <View style={styles.newsIcon}>
-            <Ionicons name="newspaper" size={16} color={colors.primary} />
-          </View>
-          <View style={styles.newsInfo}>
-            <Text style={styles.newsTitle} numberOfLines={1}>
-              {n.title}
-            </Text>
-            <Text style={styles.newsBody} numberOfLines={2}>
-              {n.body}
-            </Text>
-            {n.published_at ? (
-              <Text style={styles.newsDate}>
-                {new Date(n.published_at).toLocaleDateString('en-GB', {
-                  day: 'numeric',
-                  month: 'short',
-                  timeZone: 'Europe/London',
-                })}
-              </Text>
-            ) : null}
-          </View>
-          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
 /* ---------- Banner carousel (prototype .banners-section) ---------- */
 
 // prototype gradients: .banner-sponsor / .banner-events / .banner-madrasah / .banner-scholar
@@ -188,15 +111,71 @@ function bannerTheme(banner: Banner, index: number): string {
   return ['sponsor', 'madrasah', 'events'][index % 3] as string;
 }
 
+/** youtu.be/xyz | youtube.com/watch?v=xyz -> video id (null for other URLs) */
+function youtubeId(url: string): string | null {
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]{6,})/);
+  return m?.[1] ?? null;
+}
+
 function BannerCard({ banner, width, index }: { banner: Banner; width: number; index: number }) {
   const router = useRouter();
   const open = () => {
-    if (banner.action_type === 'screen' && banner.action_target) {
+    if (banner.video_url) {
+      WebBrowser.openBrowserAsync(banner.video_url);
+    } else if (banner.action_type === 'screen' && banner.action_target) {
       router.push(banner.action_target as never);
     } else if (banner.action_type === 'url' && banner.action_target) {
       WebBrowser.openBrowserAsync(banner.action_target);
     }
   };
+
+  // VIDEO banner: YouTube thumbnail (or poster image) + play button
+  if (banner.video_url) {
+    const yt = youtubeId(banner.video_url);
+    const thumb = banner.image_path
+      ? mediaUrl(banner.image_path)
+      : yt
+        ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg`
+        : null;
+    return (
+      <Pressable style={[styles.banner, styles.mediaBanner, { width }]} onPress={open}>
+        {thumb ? (
+          <Image source={thumb} style={StyleSheet.absoluteFill} contentFit="cover" />
+        ) : (
+          <LinearGradient colors={['#1B1B1B', '#444']} style={StyleSheet.absoluteFill} />
+        )}
+        <View style={styles.playScrim}>
+          <View style={styles.playButton}>
+            <Ionicons name="play" size={26} color="#fff" style={{ marginLeft: 3 }} />
+          </View>
+          {banner.title ? (
+            <Text style={styles.mediaCaption} numberOfLines={1}>
+              {banner.title}
+            </Text>
+          ) : null}
+        </View>
+      </Pressable>
+    );
+  }
+
+  // POSTER banner: the uploaded image IS the content (e.g. event posters)
+  if (banner.image_path) {
+    return (
+      <Pressable
+        style={[styles.banner, styles.mediaBanner, { width }]}
+        onPress={open}
+        accessibilityLabel={banner.title || 'Announcement poster'}
+      >
+        <Image
+          source={mediaUrl(banner.image_path)}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+        />
+      </Pressable>
+    );
+  }
+
+  // TEXT banner: prototype gradient card
   const theme = bannerTheme(banner, index);
   return (
     <Pressable style={[styles.banner, { width }]} onPress={open}>
@@ -206,9 +185,6 @@ function BannerCard({ banner, width, index }: { banner: Banner; width: number; i
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {banner.image_path && (
-        <Image source={mediaUrl(banner.image_path)} style={StyleSheet.absoluteFill} contentFit="cover" />
-      )}
       <View style={styles.bannerOverlay}>
         {banner.badge ? (
           <View style={styles.bannerBadge}>
@@ -379,40 +355,36 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   bannerCta: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: spacing.sm },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.border },
-  dotActive: { backgroundColor: colors.primary },
-
-  newsSection: { marginTop: spacing.lg, paddingHorizontal: spacing.lg },
-  newsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  // poster/video banners: taller media card, image is the content
+  mediaBanner: { height: 220, backgroundColor: '#1B1B1B' },
+  playScrim: {
+    flex: 1,
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.25)',
   },
-  newsHeading: { fontSize: 17, fontWeight: '700', color: colors.text },
-  newsSeeAll: { fontSize: 13, fontWeight: '600', color: colors.primary },
-  newsCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: colors.cardBackground,
-    borderRadius: radii.card,
-    padding: 12,
-    marginBottom: spacing.sm,
-  },
-  newsIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: 'rgba(21,151,120,0.1)',
+  playButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(230,0,0,0.9)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  newsInfo: { flex: 1 },
-  newsTitle: { fontSize: 13.5, fontWeight: '700', color: colors.text },
-  newsBody: { fontSize: 12, color: colors.textSecondary, lineHeight: 16, marginTop: 1 },
-  newsDate: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  mediaCaption: {
+    position: 'absolute',
+    bottom: 10,
+    left: 14,
+    right: 14,
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowRadius: 4,
+  },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: spacing.sm },
+  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.border },
+  dotActive: { backgroundColor: colors.primary },
 
   gallerySection: { marginTop: spacing.xl, marginBottom: spacing.lg },
   galleryHeader: {
