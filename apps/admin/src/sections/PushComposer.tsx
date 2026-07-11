@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { callSendPush } from '../lib/supabase';
 
@@ -11,26 +11,87 @@ const TOPICS = [
   { value: 'stadium', label: 'Stadium event days' },
 ];
 
+interface ScheduledItem {
+  id: string;
+  title: string;
+  message: string;
+  send_after: number; // unix seconds
+}
+
+/** "2026-07-25T09:00" (UK wall time) -> UTC ISO string */
+function ukWallTimeToIso(local: string): string {
+  const [d, t] = local.split('T');
+  const [y, mo, day] = d!.split('-').map(Number);
+  const [h, mi] = t!.split(':').map(Number);
+  // find the UTC instant whose Europe/London wall clock matches
+  const guess = Date.UTC(y!, mo! - 1, day!, h!, mi!);
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    hour: 'numeric',
+    hourCycle: 'h23',
+  });
+  const offset = (Number(fmt.format(new Date(guess))) - h! + 24) % 24;
+  return new Date(guess - offset * 3600 * 1000).toISOString();
+}
+
+function formatUk(unixSeconds: number): string {
+  return new Date(unixSeconds * 1000).toLocaleString('en-GB', {
+    timeZone: 'Europe/London',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 export function PushComposer() {
   const [topic, setTopic] = useState('prayer_times');
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [url, setUrl] = useState('');
+  const [sendAt, setSendAt] = useState(''); // datetime-local, UK wall time
   const [status, setStatus] = useState('');
   const [sending, setSending] = useState(false);
+  const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
+
+  const refreshScheduled = useCallback(async () => {
+    const res = await callSendPush({ action: 'list_scheduled' });
+    if (res.ok) setScheduled((res.scheduled as ScheduledItem[]) ?? []);
+  }, []);
+
+  useEffect(() => {
+    refreshScheduled();
+  }, [refreshScheduled]);
 
   const send = async () => {
-    if (!window.confirm(`Send this notification to everyone subscribed to "${topic}"?`)) return;
+    const when = sendAt ? formatUk(Date.parse(ukWallTimeToIso(sendAt)) / 1000) : 'now';
+    if (!window.confirm(`Send this notification to everyone subscribed to "${topic}" — ${sendAt ? `scheduled for ${when} (UK time)` : 'immediately'}?`)) return;
     setSending(true);
     setStatus('Sending…');
-    const res = await callSendPush({ title, message, topic, ...(url ? { url } : {}) });
-    setStatus(res.ok ? 'Sent ✓' : `Failed: ${JSON.stringify(res.errors)}`);
+    const res = await callSendPush({
+      title,
+      message,
+      topic,
+      ...(url ? { url } : {}),
+      ...(sendAt ? { send_after: ukWallTimeToIso(sendAt) } : {}),
+    });
+    setStatus(res.ok ? (sendAt ? `Scheduled for ${when} ✓` : 'Sent ✓') : `Failed: ${JSON.stringify(res.errors)}`);
     setSending(false);
     if (res.ok) {
       setTitle('');
       setMessage('');
       setUrl('');
+      setSendAt('');
+      refreshScheduled();
     }
+  };
+
+  const cancel = async (item: ScheduledItem) => {
+    if (!window.confirm(`Cancel the scheduled notification "${item.title}"?`)) return;
+    const res = await callSendPush({ action: 'cancel', id: item.id });
+    if (res.ok) refreshScheduled();
+    else window.alert(`Could not cancel: ${JSON.stringify(res.errors ?? res)}`);
   };
 
   return (
@@ -53,12 +114,53 @@ export function PushComposer() {
         <label>Link (optional — opens when tapped)</label>
         <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
 
+        <label>Schedule (optional — UK time; leave empty to send now)</label>
+        <input
+          type="datetime-local"
+          value={sendAt}
+          onChange={(e) => setSendAt(e.target.value)}
+        />
+
         <div style={{ marginTop: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
           <button className="btn" onClick={send} disabled={sending || !title.trim() || !message.trim()}>
-            Send notification
+            {sendAt ? 'Schedule notification' : 'Send notification'}
           </button>
           {status && <span className={status.startsWith('Failed') ? 'err' : 'ok'}>{status}</span>}
         </div>
+      </div>
+
+      <div className="card" style={{ maxWidth: 560 }}>
+        <h3>Scheduled — waiting to send</h3>
+        {scheduled.length === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--text-light)' }}>
+            Nothing scheduled. Use the field above to queue notifications ahead of time — e.g. all
+            stadium event days for the season.
+          </p>
+        ) : (
+          scheduled
+            .sort((a, b) => a.send_after - b.send_after)
+            .map((s) => (
+              <div
+                key={s.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '8px 0',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{s.title}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-light)' }}>{s.message}</div>
+                  <div style={{ fontSize: 12, color: 'var(--green, #159778)', fontWeight: 600 }}>
+                    {formatUk(s.send_after)} (UK)
+                  </div>
+                </div>
+                <button className="btn-secondary" onClick={() => cancel(s)}>Cancel</button>
+              </div>
+            ))
+        )}
       </div>
 
       <div className="card" style={{ maxWidth: 560, background: '#f9f9fb' }}>

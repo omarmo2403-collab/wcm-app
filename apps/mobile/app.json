@@ -40,7 +40,18 @@
       [
         "onesignal-expo-plugin",
         {
-          "mode": "development"
+          "mode": "development",
+          "smallIcons": [
+            "./assets/images/notification-icon.png"
+          ],
+          "smallIconAccentColor": "#159778"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#159778"
         }
       ]
     ],

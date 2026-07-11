@@ -39,10 +39,53 @@ Deno.serve(async (req) => {
   const role = (user?.app_metadata as Record<string, unknown> | undefined)?.app_role;
   if (role !== 'admin') return json({ error: 'forbidden' }, 403);
 
-  const { title, message, topic, url } = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({}));
+  const key = Deno.env.get('ONESIGNAL_REST_API_KEY');
+
+  // action: 'list_scheduled' — pending (scheduled, not yet sent) notifications
+  if (body.action === 'list_scheduled') {
+    const resp = await fetch(
+      `https://api.onesignal.com/notifications?app_id=${ONESIGNAL_APP_ID}&limit=50&kind=1`,
+      { headers: { Authorization: `Key ${key}` } },
+    );
+    const result = await resp.json();
+    const now = Date.now() / 1000;
+    const scheduled = (result.notifications ?? [])
+      .filter((n: { send_after?: number; completed_at?: number | null; canceled?: boolean }) =>
+        !n.canceled && !n.completed_at && (n.send_after ?? 0) > now)
+      .map((n: Record<string, unknown>) => ({
+        id: n.id,
+        title: (n.headings as Record<string, string>)?.en ?? '',
+        message: (n.contents as Record<string, string>)?.en ?? '',
+        send_after: n.send_after,
+      }));
+    return json({ ok: resp.ok, scheduled }, resp.ok ? 200 : 502);
+  }
+
+  // action: 'cancel' — cancel a scheduled notification by id
+  if (body.action === 'cancel') {
+    if (typeof body.id !== 'string' || !body.id) return json({ error: 'id required' }, 400);
+    const resp = await fetch(
+      `https://api.onesignal.com/notifications/${body.id}?app_id=${ONESIGNAL_APP_ID}`,
+      { method: 'DELETE', headers: { Authorization: `Key ${key}` } },
+    );
+    const result = await resp.json();
+    return json({ ok: resp.ok, ...result }, resp.ok ? 200 : 502);
+  }
+
+  const { title, message, topic, url, send_after } = body;
   if (typeof title !== 'string' || !title.trim()) return json({ error: 'title required' }, 400);
   if (typeof message !== 'string' || !message.trim()) return json({ error: 'message required' }, 400);
   if (typeof topic !== 'string' || !(topic in TOPIC_DEFAULT_ON)) return json({ error: 'invalid topic' }, 400);
+  // optional scheduling: ISO instant, must be in the future (max ~1 year out)
+  let sendAfter: string | null = null;
+  if (send_after != null) {
+    const t = Date.parse(String(send_after));
+    if (Number.isNaN(t)) return json({ error: 'invalid send_after' }, 400);
+    if (t < Date.now() + 60_000) return json({ error: 'send_after must be in the future' }, 400);
+    if (t > Date.now() + 366 * 24 * 3600 * 1000) return json({ error: 'send_after too far ahead' }, 400);
+    sendAfter = new Date(t).toISOString();
+  }
 
   // Opt-out topics also reach devices that never wrote tags; explicit
   // tag 'false' (set by the in-app toggle) excludes them.
@@ -57,7 +100,7 @@ Deno.serve(async (req) => {
   const resp = await fetch('https://api.onesignal.com/notifications', {
     method: 'POST',
     headers: {
-      Authorization: `Key ${Deno.env.get('ONESIGNAL_REST_API_KEY')}`,
+      Authorization: `Key ${key}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -65,12 +108,19 @@ Deno.serve(async (req) => {
       headings: { en: title },
       contents: { en: message },
       filters,
+      ...(sendAfter ? { send_after: sendAfter } : {}),
       ...(typeof url === 'string' && url ? { url } : {}),
     }),
   });
   const result = await resp.json();
   return json(
-    { ok: resp.ok, id: result.id ?? null, recipients: result.recipients ?? null, errors: result.errors ?? null },
+    {
+      ok: resp.ok,
+      id: result.id ?? null,
+      recipients: result.recipients ?? null,
+      scheduled_for: sendAfter,
+      errors: result.errors ?? null,
+    },
     resp.ok ? 200 : 502,
   );
 });

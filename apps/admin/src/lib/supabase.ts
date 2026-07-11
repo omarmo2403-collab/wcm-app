@@ -6,12 +6,9 @@ const ANON_KEY =
 
 export const supabase = createClient(SUPABASE_URL, ANON_KEY);
 
-export async function callSendPush(payload: {
-  title: string;
-  message: string;
-  topic: string;
-  url?: string;
-}): Promise<{ ok: boolean; errors: unknown }> {
+export async function callSendPush(
+  payload: Record<string, unknown>,
+): Promise<{ ok: boolean; errors?: unknown; [k: string]: unknown }> {
   const { data: { session } } = await supabase.auth.getSession();
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
     method: 'POST',
