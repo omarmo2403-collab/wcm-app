@@ -18,6 +18,14 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="WCM" />
+        {/* Supabase magic-link safety net: if an auth token lands on the app
+            instead of /admin/ (redirect quirks), forward it before React loads. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "if((location.hash.indexOf('access_token')>-1||location.search.indexOf('code=')>-1)&&location.pathname.indexOf('/admin')===-1){location.replace(location.pathname.replace(/\\/?$/,'/admin/')+location.search+location.hash);}",
+          }}
+        />
         <ScrollViewStyleReset />
       </head>
       <body>{children}</body>
