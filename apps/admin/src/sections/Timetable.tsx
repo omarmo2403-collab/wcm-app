@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { callSendPush, supabase } from '../lib/supabase';
+import { parseTimetableDocument } from '../lib/timetable-import';
 
 const PRAYER_FIELDS = [
   'fajr_begins', 'fajr_iqamah', 'sunrise',
@@ -52,6 +53,7 @@ export function Timetable() {
   const [status, setStatus] = useState('');
   const [csvOpen, setCsvOpen] = useState(false);
   const [csvText, setCsvText] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setStatus('');
@@ -120,6 +122,49 @@ export function Timetable() {
     await load();
   };
 
+  /** Committee document import: parse .docx/.pdf in the browser, fill the
+   *  grid as pending changes — the admin reviews, then Save runs the normal
+   *  upsert + near-term iqamah-change push flow. */
+  const importDocument = async (file: File) => {
+    setStatus(`Reading ${file.name}…`);
+    try {
+      const result = await parseTimetableDocument(file);
+      if (!result.month || result.days.length === 0) {
+        setStatus(`Error: ${result.warnings[0] ?? 'nothing parsed'}`);
+        return;
+      }
+      setMonth(result.month);
+      // load existing rows for that month first so dirty-diffing works
+      const { data } = await supabase
+        .from('prayer_times')
+        .select('*')
+        .gte('date', `${result.month}-01`)
+        .lte('date', `${result.month}-31`);
+      const existing: Record<string, Row> = {};
+      for (const r of data ?? []) {
+        const row = { date: r.date } as Row;
+        for (const f of PRAYER_FIELDS) row[f] = String(r[f] ?? '').slice(0, 5);
+        existing[r.date] = row;
+      }
+      setOriginal(JSON.parse(JSON.stringify(existing)));
+      const next: Record<string, Row> = { ...existing };
+      for (const d of result.days) {
+        const row = { date: d.date } as Row;
+        for (const f of PRAYER_FIELDS) row[f] = (d[f as keyof typeof d] ?? '') as string;
+        next[d.date] = row;
+      }
+      setRows(next);
+      const monthName = new Date(`${result.month}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+      setStatus(
+        `Parsed ${result.days.length} days for ${monthName}` +
+        (result.warnings.length ? ` — ${result.warnings.length} warning(s): ${result.warnings.slice(0, 3).join('; ')}` : ' ✓') +
+        ' — review below, then Save.',
+      );
+    } catch (e) {
+      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
   const importCsv = async () => {
     setStatus('Importing…');
     const lines = csvText.trim().split(/\r?\n/).filter((l) => l && !l.startsWith('date'));
@@ -143,6 +188,20 @@ export function Timetable() {
       <div className="toolbar">
         <input type="month" style={{ width: 170 }} value={month} onChange={(e) => setMonth(e.target.value)} />
         <span className="note">{covered}/{days.length} days have times</span>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".docx,.pdf"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) importDocument(f);
+            e.target.value = '';
+          }}
+        />
+        <button className="btn secondary" onClick={() => fileRef.current?.click()}>
+          Import committee document
+        </button>
         <button className="btn secondary" onClick={() => setCsvOpen((v) => !v)}>CSV import</button>
         <button className="btn" onClick={save} disabled={dirtyDates.length === 0}>
           Save {dirtyDates.length > 0 ? `${dirtyDates.length} changed day(s)` : 'changes'}
@@ -150,6 +209,9 @@ export function Timetable() {
         {status && <span className={status.startsWith('Error') || status.includes('failed') ? 'err' : 'ok'}>{status}</span>}
       </div>
       <p className="note" style={{ marginBottom: 10 }}>
+        <strong>Monthly workflow:</strong> click &ldquo;Import committee document&rdquo; and choose
+        the timetable Word/PDF file — every day is auto-filled (blank jamat cells inherit the
+        previous day, exactly as printed). Review the highlighted rows, then Save.
         Editing a day within the next 14 days offers to push an automatic
         &ldquo;prayer time change&rdquo; alert to the congregation. Phones re-sync their local
         alarms when the app is next opened or in daily background sync.
