@@ -36,10 +36,10 @@ const headerStyles = StyleSheet.create({
   // prototype .app-header: 56px bar, 40px mark; wordmark optically centred
   // on the skyline's building mass (its centre of gravity sits low because
   // of the thin minaret at the top)
-  wrap: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 56 },
-  icon: { width: 76, height: 40 },
-  // larger wordmark, midline dropped to the WCM-block row of the skyline
-  text: { width: 196, height: 15, transform: [{ translateY: 3 }] },
+  wrap: { flexDirection: 'row', alignItems: 'center', gap: 11, height: 56 },
+  icon: { width: 87, height: 46 },
+  // wordmark midline dropped to the WCM-block row of the skyline
+  text: { width: 216, height: 16.5, transform: [{ translateY: 4 }] },
 });
 
 export default function TabLayout() {
