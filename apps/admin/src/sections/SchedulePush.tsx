@@ -88,10 +88,10 @@ function validateRow(r: ParsedRow): string | undefined {
   return undefined;
 }
 
-function rowsFromMatrix(matrix: unknown[][]): ParsedRow[] {
+function rowsFromMatrix(matrix: unknown[][], events: EventOption[]): ParsedRow[] {
   const rows: ParsedRow[] = [];
   for (const cells of matrix) {
-    const [date, time, topic, title, message, link] = cells;
+    const [date, time, topic, title, message, link, eventName] = cells;
     const dateS = cellDate(date);
     // skip header / example / empty rows
     if (!dateS || /^date$/i.test(dateS) || String(title ?? '').startsWith('EXAMPLE')) continue;
@@ -107,7 +107,29 @@ function rowsFromMatrix(matrix: unknown[][]): ParsedRow[] {
       link: linkS && !linkS.startsWith('/') ? linkS : undefined,
       route: linkS.startsWith('/') ? linkS : undefined,
     };
-    row.error = validateRow(row);
+    // Event column: name of an upcoming event -> deep link to its page.
+    // Exact title match first, then unique substring match.
+    const evName = String(eventName ?? '').trim();
+    let eventError: string | undefined;
+    if (evName) {
+      const lower = evName.toLowerCase();
+      const exact = events.filter((e) => e.title.toLowerCase() === lower);
+      const matched = exact.length > 0
+        ? exact
+        : events.filter((e) => e.title.toLowerCase().includes(lower));
+      if (matched.length === 1) {
+        row.route = `/event/${matched[0]!.id}`;
+        if (!row.topic) row.topic = 'events';
+        else if (row.topic !== 'events') {
+          eventError = `row links to an event, so topic must be "events" (or blank), not "${row.topic}"`;
+        }
+      } else if (matched.length === 0) {
+        eventError = `no upcoming event matching "${evName}" — check the Events section`;
+      } else {
+        eventError = `"${evName}" matches ${matched.length} upcoming events — use the full title`;
+      }
+    }
+    row.error = eventError ?? validateRow(row);
     rows.push(row);
   }
   return rows;
@@ -127,27 +149,40 @@ async function parseDocxTable(buf: ArrayBuffer): Promise<unknown[][]> {
   return matrix;
 }
 
-function downloadTemplate() {
+function downloadTemplate(events: EventOption[]) {
   const wb = XLSX.utils.book_new();
   const data = [
-    ['Date', 'Time (24h UK)', 'Topic', 'Title', 'Message', 'Link (optional)'],
-    ['2026-07-25', '09:00', 'stadium', 'EXAMPLE — Stadium event today', 'Parking restrictions apply around the Masjid today. Please use public transport.', ''],
-    ['2026-08-08', '09:00', 'stadium', 'EXAMPLE — Stadium event today', 'Parking restrictions apply around the Masjid today.', ''],
+    ['Date', 'Time (24h UK)', 'Topic', 'Title', 'Message', 'Link (optional)', 'Event (optional)'],
+    ['2026-07-25', '09:00', 'stadium', 'EXAMPLE — Stadium event today', 'Parking restrictions apply around the Masjid today. Please use public transport.', '/stadium', ''],
+    ['2026-08-01', '10:00', '', 'EXAMPLE — Fundraising dinner tonight', 'Join us at 7pm — tap to see the details.', '', 'Annual Fundraising Dinner'],
+    ['2026-08-03', '18:00', 'events', 'EXAMPLE — General with web link', 'Read the full announcement on our website.', 'https://wembleycentralmasjid.co.uk', ''],
   ];
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 34 }, { wch: 60 }, { wch: 30 }];
+  ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 34 }, { wch: 60 }, { wch: 34 }, { wch: 30 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Notifications');
   const notes = XLSX.utils.aoa_to_sheet([
     ['How to use this template'],
     ['1. One row per notification. Delete the EXAMPLE rows (any row whose Title starts with EXAMPLE is ignored).'],
     ['2. Date: YYYY-MM-DD (or DD/MM/YYYY). Time: 24-hour UK time, e.g. 09:00 or 18:30.'],
-    ['3. Topic must be exactly one of: prayer_times, events, stadium.'],
+    ['3. Topic: prayer_times, events or stadium — who receives it. Leave blank if you fill in Event.'],
     ['4. Title max 65 characters; Message max 178 characters (it is a phone notification).'],
-    ['5. Link is optional: a web address (https://…) opens in the browser when tapped. To open an event page or app screen instead, leave it blank — you pick that per row in the admin panel after uploading.'],
-    ['6. Save the file and upload it in the admin Scheduled Notifications section.'],
+    ['5. EVENT NOTIFICATION with deep link: put the event name in the Event column (as it appears in the app), e.g. "Annual Fundraising Dinner". Tapping the notification then opens that event page in the app. See the "Upcoming events" sheet for names.'],
+    ['6. GENERAL NOTIFICATION: leave Event blank. Link is optional — a web address (https://…) opens in the browser; an app screen opens in the app: /stadium, /prayer-times, /donate or /news.'],
+    ['7. Upload the file in the admin Scheduled Notifications section — you can still review and change where each row links before scheduling.'],
   ]);
-  notes['!cols'] = [{ wch: 110 }];
+  notes['!cols'] = [{ wch: 120 }];
   XLSX.utils.book_append_sheet(wb, notes, 'Instructions');
+  if (events.length > 0) {
+    const evSheet = XLSX.utils.aoa_to_sheet([
+      ['Upcoming events (copy a name into the Event column)', 'Date'],
+      ...events.map((e) => [
+        e.title,
+        new Date(e.starts_at).toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'long', year: 'numeric' }),
+      ]),
+    ]);
+    evSheet['!cols'] = [{ wch: 50 }, { wch: 24 }];
+    XLSX.utils.book_append_sheet(wb, evSheet, 'Upcoming events');
+  }
   XLSX.writeFile(wb, 'WCM Notification Schedule Template.xlsx');
 }
 
@@ -194,7 +229,7 @@ export function SchedulePush() {
         const ws = wb.Sheets[wb.SheetNames[0]!]!;
         matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as unknown[][];
       }
-      const parsed = rowsFromMatrix(matrix);
+      const parsed = rowsFromMatrix(matrix, events);
       setRows(parsed);
       const bad = parsed.filter((r) => r.error).length;
       setStatus(
@@ -251,10 +286,12 @@ export function SchedulePush() {
       <div className="card" style={{ maxWidth: 720 }}>
         <h3>1 — Download the template</h3>
         <p className="note">
-          Fill one row per notification (e.g. every stadium event day for the season).
-          Dates and times are UK local; topics: prayer_times, events, stadium.
+          Fill one row per notification — general (pick a topic, optional web link or app screen)
+          or event (put the event name in the Event column and the notification deep-links to that
+          event's page). The template includes instructions and the current list of upcoming
+          events. Dates and times are UK local.
         </p>
-        <button className="btn secondary" onClick={downloadTemplate}>Download Excel template</button>
+        <button className="btn secondary" onClick={() => downloadTemplate(events)}>Download Excel template</button>
       </div>
 
       <div className="card" style={{ maxWidth: 720 }}>
