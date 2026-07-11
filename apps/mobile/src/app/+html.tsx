@@ -27,6 +27,26 @@ export default function Root({ children }: PropsWithChildren) {
           }}
         />
         <ScrollViewStyleReset />
+        {/* Desktop web: present the app in a phone-sized frame (like the
+            prototype's .phone-frame) instead of stretching full width. */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              @media (min-width: 500px) {
+                body { background: #e9eaee; }
+                #root {
+                  max-width: 390px;
+                  height: 96vh;
+                  margin: 2vh auto;
+                  overflow: hidden;
+                  border-radius: 24px;
+                  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+                  border: 1px solid #d5d5d5;
+                }
+              }
+            `,
+          }}
+        />
       </head>
       <body>{children}</body>
     </html>
