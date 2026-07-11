@@ -6,10 +6,11 @@ import { Timetable } from './sections/Timetable';
 import { CrudSection, CRUD_SECTIONS } from './sections/CrudSection';
 import { PushComposer } from './sections/PushComposer';
 import { SchedulePush } from './sections/SchedulePush';
+import { StadiumDays } from './sections/StadiumDays';
 import { ConfigSection } from './sections/Config';
 import { AuditLog } from './sections/Audit';
 
-type SectionKey = 'timetable' | keyof typeof CRUD_SECTIONS | 'push' | 'schedule' | 'config' | 'audit';
+type SectionKey = 'timetable' | keyof typeof CRUD_SECTIONS | 'stadiumdays' | 'push' | 'schedule' | 'config' | 'audit';
 
 const NAV: { key: SectionKey; label: string }[] = [
   { key: 'timetable', label: 'Prayer Times' },
@@ -21,6 +22,7 @@ const NAV: { key: SectionKey; label: string }[] = [
   { key: 'madrasah', label: 'Madrasah' },
   { key: 'services', label: 'Services' },
   { key: 'jumuah', label: "Jumu'ah Times" },
+  { key: 'stadiumdays', label: 'Stadium Days' },
   { key: 'push', label: 'Send Notification' },
   { key: 'schedule', label: 'Scheduled Notifications' },
   { key: 'config', label: 'App Config' },
@@ -137,6 +139,7 @@ export default function App() {
         {section in CRUD_SECTIONS && (
           <CrudSection key={section} config={CRUD_SECTIONS[section as keyof typeof CRUD_SECTIONS]} />
         )}
+        {section === 'stadiumdays' && <StadiumDays />}
         {section === 'push' && <PushComposer />}
         {section === 'schedule' && <SchedulePush />}
         {section === 'config' && <ConfigSection />}
