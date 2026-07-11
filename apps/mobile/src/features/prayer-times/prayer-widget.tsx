@@ -2,7 +2,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { PRAYERS, formatHijri, londonToday, type PrayerName } from '@wcm/shared';
+import {
+  PRAYERS,
+  formatHijri,
+  formatLondonDateLong,
+  formatLondonMonthYear,
+  londonToday,
+  type PrayerName,
+} from '@wcm/shared';
 
 import { colors, widget } from '@/theme/tokens';
 import { useAppConfig } from './config';
@@ -38,23 +45,9 @@ function fmtShort(time: string): string {
   return fmt(time).replace(/ [ap]m$/, '');
 }
 
-function gregorianLong(): string {
-  // prototype format: "July 11, 2026"
-  return new Date().toLocaleDateString('en-US', {
-    timeZone: 'Europe/London',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function monthLabel(): string {
-  return new Date().toLocaleDateString('en-US', {
-    timeZone: 'Europe/London',
-    month: 'long',
-    year: 'numeric',
-  });
-}
+// Intl-free (Hermes-safe): shared helpers compute London dates arithmetically
+const gregorianLong = () => formatLondonDateLong(new Date());
+const monthLabel = () => formatLondonMonthYear(new Date());
 
 export function PrayerWidget() {
   const router = useRouter();

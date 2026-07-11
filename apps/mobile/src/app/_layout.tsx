@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 
+import { AppErrorBoundary } from '@/components/error-boundary';
 import { NotificationSync } from '@/features/notifications/notification-sync';
 import { colors } from '@/theme/tokens';
 
@@ -14,9 +15,10 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <NotificationSync />
-      <StatusBar style="light" />
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <NotificationSync />
+        <StatusBar style="light" />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.primary },
@@ -26,7 +28,8 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-    </QueryClientProvider>
+        </Stack>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   );
 }

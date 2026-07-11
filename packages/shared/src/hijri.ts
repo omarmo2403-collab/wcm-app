@@ -11,9 +11,10 @@ export function formatHijri(dateISO: string, offsetDays = 0): string {
   const [y = 1970, m = 1, d = 1] = dateISO.split('-').map(Number);
   // noon UTC keeps the date stable regardless of host timezone
   const date = new Date(Date.UTC(y, m - 1, d, 12) + offsetDays * 86_400_000);
-  // masjid style: unpadded day, plain-ASCII month names ("Safar", not "Ṣafar")
+  // masjid style: unpadded day, plain-ASCII month names ("Safar", not "Ṣafar").
+  // Combining-mark escape range instead of \p{Diacritic}: Hermes-safe.
   return uq(date)
     .format('d MMMM yyyy', 'en')
     .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '');
+    .replace(new RegExp('[\\u0300-\\u036f]', 'g'), '');
 }

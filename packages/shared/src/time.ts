@@ -1,28 +1,26 @@
-const LONDON = 'Europe/London';
+/**
+ * Europe/London time arithmetic without Intl.
+ *
+ * Hermes (React Native's JS engine) has patchy Intl support on Android and a
+ * module-scope Intl failure would crash the app at startup, so the masjid's
+ * timezone maths is implemented directly: UK law fixes the transitions at the
+ * last Sunday of March and the last Sunday of October, 01:00 UTC.
+ */
 
-const partsFmt = new Intl.DateTimeFormat('en-GB', {
-  timeZone: LONDON,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: false,
-});
+const HOUR = 3_600_000;
 
-/** What a given UTC instant reads as on a London wall clock, in ms-since-epoch terms. */
-function londonWallMillis(utc: Date): number {
-  const p: Record<string, string> = {};
-  for (const part of partsFmt.formatToParts(utc)) p[part.type] = part.value;
-  return Date.UTC(
-    Number(p.year),
-    Number(p.month) - 1,
-    Number(p.day),
-    Number(p.hour) === 24 ? 0 : Number(p.hour),
-    Number(p.minute),
-    Number(p.second),
-  );
+/** UTC instant (ms) of 01:00 UTC on the last Sunday of the given month. */
+function lastSundayTransition(year: number, monthIndex: number): number {
+  // day 0 of next month = last day of this month
+  const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0));
+  const lastSunday = lastDay.getUTCDate() - lastDay.getUTCDay();
+  return Date.UTC(year, monthIndex, lastSunday, 1);
+}
+
+/** Is this UTC instant inside British Summer Time? */
+function isBst(utcMillis: number): boolean {
+  const year = new Date(utcMillis).getUTCFullYear();
+  return utcMillis >= lastSundayTransition(year, 2) && utcMillis < lastSundayTransition(year, 9);
 }
 
 /**
@@ -30,25 +28,15 @@ function londonWallMillis(utc: Date): number {
  *
  * The timetable stores local times; notifications must fire at the local moment,
  * so this conversion — not the device timezone — is the source of truth.
- * Handles GMT/BST transitions; times inside the spring-forward gap resolve to
- * the post-transition offset (prayer times never fall at 01:xx, so this is moot
- * in practice but keeps the function total).
+ * Times inside the spring-forward gap resolve to the post-transition offset
+ * (prayer times never fall at 01:xx, so this is moot in practice).
  */
 export function londonWallClockToUtc(dateISO: string, timeHHMM: string): Date {
   const [h = 0, m = 0, s = 0] = timeHHMM.split(':').map(Number);
   const [y = 1970, mo = 1, d = 1] = dateISO.split('-').map(Number);
-  const target = Date.UTC(y, mo - 1, d, h, m, s);
-
-  // First guess: treat the wall time as if it were UTC, then correct by the
-  // zone offset observed at the guess. London's offset is 0 or +60min, so a
-  // second correction pass always converges.
-  let guess = target;
-  for (let i = 0; i < 2; i++) {
-    const diff = londonWallMillis(new Date(guess)) - target;
-    if (diff === 0) break;
-    guess -= diff;
-  }
-  return new Date(guess);
+  const asUtc = Date.UTC(y, mo - 1, d, h, m, s); // interpretation if GMT
+  const asBst = asUtc - HOUR; //                    interpretation if BST
+  return new Date(isBst(asBst) ? asBst : asUtc);
 }
 
 /** "HH:MM" (or "HH:MM:SS") → minutes since midnight. */
@@ -57,15 +45,41 @@ export function timeToMinutes(timeHHMM: string): number {
   return h * 60 + m;
 }
 
+/** London date parts for a UTC instant. */
+export function londonDateParts(now: Date): { year: number; month: number; day: number } {
+  const shifted = new Date(now.getTime() + (isBst(now.getTime()) ? HOUR : 0));
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  };
+}
+
 /** Today's date in London as YYYY-MM-DD (device timezone independent). */
 export function londonToday(now: Date): string {
-  const p: Record<string, string> = {};
-  for (const part of partsFmt.formatToParts(now)) p[part.type] = part.value;
-  return `${p.year}-${p.month}-${p.day}`;
+  const { year, month, day } = londonDateParts(now);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 /** Day of week (0=Sun..6=Sat) of a YYYY-MM-DD calendar date. */
 export function dayOfWeek(dateISO: string): number {
   const [y = 1970, mo = 1, d = 1] = dateISO.split('-').map(Number);
   return new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
+}
+
+export const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+] as const;
+
+/** "July 11, 2026" — prototype's date format, no Intl. */
+export function formatLondonDateLong(now: Date): string {
+  const { year, month, day } = londonDateParts(now);
+  return `${MONTH_NAMES[month - 1]} ${day}, ${year}`;
+}
+
+/** "July 2026" */
+export function formatLondonMonthYear(now: Date): string {
+  const { year, month } = londonDateParts(now);
+  return `${MONTH_NAMES[month - 1]} ${year}`;
 }
