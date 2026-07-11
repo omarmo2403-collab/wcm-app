@@ -27,63 +27,52 @@ const NAV: { key: SectionKey; label: string }[] = [
 
 function Login() {
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [stage, setStage] = useState<'email' | 'code'>('email');
+  const [sent, setSent] = useState(false);
   const [msg, setMsg] = useState('');
 
-  const sendCode = async () => {
+  const sendLink = async () => {
     setMsg('');
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { shouldCreateUser: false },
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: window.location.origin + window.location.pathname,
+      },
     });
     if (error) setMsg(error.message);
-    else {
-      setStage('code');
-      setMsg('Check your email for a 6-digit code.');
-    }
-  };
-
-  const verify = async () => {
-    setMsg('');
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: code.trim(),
-      type: 'email',
-    });
-    if (error) setMsg(error.message);
+    else setSent(true);
   };
 
   return (
     <div className="login-wrap">
       <div className="login-card">
         <h1>WCM Admin</h1>
-        <p>Wembley Central Masjid content dashboard. Staff sign-in via email code — no password.</p>
-        {stage === 'email' ? (
+        <p>Wembley Central Masjid content dashboard. Staff sign-in via email link — no password.</p>
+        {!sent ? (
           <>
             <label>Email address</label>
             <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
             <div style={{ marginTop: 14 }}>
-              <button className="btn" onClick={sendCode} disabled={!email.includes('@')}>
-                Email me a code
+              <button className="btn" onClick={sendLink} disabled={!email.includes('@')}>
+                Email me a sign-in link
               </button>
             </div>
           </>
         ) : (
           <>
-            <label>6-digit code sent to {email}</label>
-            <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" />
-            <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
-              <button className="btn" onClick={verify} disabled={code.trim().length < 6}>
-                Sign in
-              </button>
-              <button className="btn secondary" onClick={() => setStage('email')}>
-                Back
-              </button>
-            </div>
+            <p>
+              <strong>Sign-in link sent to {email}.</strong>
+            </p>
+            <p>
+              Open the email and click the link — it brings you straight back here, signed in. Best
+              opened in this same browser.
+            </p>
+            <button className="btn secondary" onClick={() => setSent(false)}>
+              Use a different email
+            </button>
           </>
         )}
-        {msg && <p style={{ marginTop: 12 }}>{msg}</p>}
+        {msg && <p style={{ marginTop: 12 }} className="err">{msg}</p>}
       </div>
     </div>
   );
