@@ -25,7 +25,7 @@ const ACTIONS = [
   { label: 'Donate', icon: 'hand-heart' as const, color: '#914BA1', route: '/donate' },
   { label: 'Events', icon: 'calendar-month' as const, color: '#159778', route: '/events' },
   { label: 'Qibla', icon: 'compass' as const, color: '#2980B9', route: '/qibla' },
-  { label: 'Timetable', icon: 'clock-outline' as const, color: '#E67E22', route: '/prayer-times' },
+  { label: 'Timetable', icon: 'clock-outline' as const, color: '#C0392B', route: '/prayer-times' },
 ];
 
 export function QuickActions() {
