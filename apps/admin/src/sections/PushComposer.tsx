@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { callSendPush } from '../lib/supabase';
+import { callSendPush, supabase } from '../lib/supabase';
 
 // Matches the app's three notification switches exactly — congregants who
 // turn a switch off are excluded from that topic's sends automatically
@@ -17,6 +17,20 @@ interface ScheduledItem {
   message: string;
   send_after: number; // unix seconds
 }
+
+interface EventOption {
+  id: string;
+  title: string;
+  starts_at: string;
+}
+
+// Fixed in-app screens a notification can open (event links are added dynamically)
+const APP_SCREENS = [
+  { route: '/stadium', label: 'Stadium event days screen' },
+  { route: '/prayer-times', label: 'Prayer times screen' },
+  { route: '/donate', label: 'Donate screen' },
+  { route: '/news', label: 'News screen' },
+];
 
 /** "2026-07-25T09:00" (UK wall time) -> UTC ISO string */
 function ukWallTimeToIso(local: string): string {
@@ -54,6 +68,7 @@ export function PushComposer() {
   const [status, setStatus] = useState('');
   const [sending, setSending] = useState(false);
   const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
+  const [events, setEvents] = useState<EventOption[]>([]);
 
   const refreshScheduled = useCallback(async () => {
     const res = await callSendPush({ action: 'list_scheduled' });
@@ -62,6 +77,14 @@ export function PushComposer() {
 
   useEffect(() => {
     refreshScheduled();
+    // upcoming events for the deep-link picker
+    supabase
+      .from('events')
+      .select('id,title,starts_at')
+      .gte('starts_at', new Date().toISOString())
+      .order('starts_at')
+      .limit(30)
+      .then(({ data }) => setEvents((data as EventOption[]) ?? []));
   }, [refreshScheduled]);
 
   const send = async () => {
@@ -69,11 +92,13 @@ export function PushComposer() {
     if (!window.confirm(`Send this notification to everyone subscribed to "${topic}" — ${sendAt ? `scheduled for ${when} (UK time)` : 'immediately'}?`)) return;
     setSending(true);
     setStatus('Sending…');
+    // Leading "/" = in-app screen (deep link); anything else = web URL
+    const link = url.trim();
     const res = await callSendPush({
       title,
       message,
       topic,
-      ...(url ? { url } : {}),
+      ...(link ? (link.startsWith('/') ? { route: link } : { url: link }) : {}),
       ...(sendAt ? { send_after: ukWallTimeToIso(sendAt) } : {}),
     });
     setStatus(res.ok ? (sendAt ? `Scheduled for ${when} ✓` : 'Sent ✓') : `Failed: ${JSON.stringify(res.errors)}`);
@@ -111,8 +136,31 @@ export function PushComposer() {
         <label>Message ({message.length}/178)</label>
         <textarea value={message} maxLength={178} onChange={(e) => setMessage(e.target.value)} placeholder="Keep it short — this is a phone notification." />
 
-        <label>Link (optional — opens when tapped)</label>
-        <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+        <label>Open in app when tapped (optional)</label>
+        <select value={url.startsWith('/') ? url : ''} onChange={(e) => setUrl(e.target.value)}>
+          <option value="">— nothing / web link below —</option>
+          {events.length > 0 && (
+            <optgroup label="Event pages">
+              {events.map((ev) => (
+                <option key={ev.id} value={`/event/${ev.id}`}>
+                  {ev.title} ({new Date(ev.starts_at).toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' })})
+                </option>
+              ))}
+            </optgroup>
+          )}
+          <optgroup label="App screens">
+            {APP_SCREENS.map((s) => (
+              <option key={s.route} value={s.route}>{s.label}</option>
+            ))}
+          </optgroup>
+        </select>
+
+        <label>…or a web link (optional — opens in browser)</label>
+        <input
+          value={url.startsWith('/') ? '' : url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://…"
+        />
 
         <label>Schedule (optional — UK time; leave empty to send now)</label>
         <input

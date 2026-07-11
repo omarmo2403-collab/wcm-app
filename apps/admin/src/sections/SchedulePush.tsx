@@ -131,7 +131,8 @@ function downloadTemplate() {
     ['2. Date: YYYY-MM-DD (or DD/MM/YYYY). Time: 24-hour UK time, e.g. 09:00 or 18:30.'],
     ['3. Topic must be exactly one of: prayer_times, events, stadium.'],
     ['4. Title max 65 characters; Message max 178 characters (it is a phone notification).'],
-    ['5. Save the file and upload it in the admin Scheduled Notifications section.'],
+    ['5. Link is optional: a web address (https://…) opens in the browser; an app screen path opens inside the app — use /stadium for the stadium screen or /event/<id> for an event page.'],
+    ['6. Save the file and upload it in the admin Scheduled Notifications section.'],
   ]);
   notes['!cols'] = [{ wch: 110 }];
   XLSX.utils.book_append_sheet(wb, notes, 'Instructions');
@@ -192,7 +193,8 @@ export function SchedulePush() {
         message: r.message,
         topic: r.topic,
         send_after: ukToIso(r.date, r.time),
-        ...(r.link ? { url: r.link } : {}),
+        // leading "/" = in-app screen (e.g. /event/<id>, /stadium); else web URL
+        ...(r.link ? (r.link.startsWith('/') ? { route: r.link } : { url: r.link }) : {}),
       });
       if (res.ok) ok++;
       else failures.push(`${r.date} ${r.time} "${r.title}": ${JSON.stringify(res.errors)}`);

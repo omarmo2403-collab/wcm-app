@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     return json({ ok: resp.ok, ...result }, resp.ok ? 200 : 502);
   }
 
-  const { title, message, topic, url, send_after } = body;
+  const { title, message, topic, url, route, send_after } = body;
   if (typeof title !== 'string' || !title.trim()) return json({ error: 'title required' }, 400);
   if (typeof message !== 'string' || !message.trim()) return json({ error: 'message required' }, 400);
   if (typeof topic !== 'string' || !(topic in TOPIC_DEFAULT_ON)) return json({ error: 'invalid topic' }, 400);
@@ -110,6 +110,8 @@ Deno.serve(async (req) => {
       filters,
       ...(sendAfter ? { send_after: sendAfter } : {}),
       ...(typeof url === 'string' && url ? { url } : {}),
+      // in-app deep link: the app's notification-click listener navigates here
+      ...(typeof route === 'string' && route.startsWith('/') ? { data: { route } } : {}),
     }),
   });
   const result = await resp.json();

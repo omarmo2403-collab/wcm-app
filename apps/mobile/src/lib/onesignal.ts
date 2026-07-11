@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Platform } from 'react-native';
 
 export const ONESIGNAL_APP_ID = '36591c9d-0098-4d2b-bad5-d240719d9285';
@@ -20,6 +21,15 @@ export function initOneSignal(): void {
     // already-granted devices resolve silently. Safe here: it queues on the
     // native module thread AFTER initialize.
     OneSignal.Notifications.requestPermission(false);
+    // Deep link: admin pushes may carry data.route ('/event/<id>', '/stadium'
+    // …) — navigate there when the user taps the notification.
+    OneSignal.Notifications.addEventListener('click', (event: import('react-native-onesignal').NotificationClickEvent) => {
+      const route = (event.notification.additionalData as { route?: unknown } | undefined)?.route;
+      if (typeof route === 'string' && route.startsWith('/')) {
+        // small delay so navigation lands after the root layout mounts on cold start
+        setTimeout(() => router.push(route as never), 400);
+      }
+    });
   } catch {
     // module not present (e.g. Expo Go) — remote push simply unavailable
   }
