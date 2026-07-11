@@ -5,7 +5,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 
 import { PRAYERS, type PrayerName } from '@wcm/shared';
 
 import { CardTitle, SectionCard } from '@/components/ui/section-card';
-import { usePrefs } from '@/features/notifications/prefs';
+import { TOPICS, usePrefs } from '@/features/notifications/prefs';
 import {
   getPermissionStatus,
   getScheduledSummary,
@@ -32,7 +32,7 @@ const JUMUAH_OPTIONS = [
 ] as const;
 
 export default function NotificationSettingsScreen() {
-  const { prefs, setPrayerEnabled, setLeadMinutes, setJumuah } = usePrefs();
+  const { prefs, topics, setPrayerEnabled, setLeadMinutes, setJumuah, setTopic } = usePrefs();
   const [permission, setPermission] = useState<string>('checking…');
   const [scheduled, setScheduled] = useState<ScheduledSummary[]>([]);
 
@@ -138,6 +138,27 @@ export default function NotificationSettingsScreen() {
           </View>
         </SectionCard>
 
+        <SectionCard>
+          <CardTitle>Masjid announcements</CardTitle>
+          <Text style={styles.note}>
+            Messages sent by the Masjid — choose which topics reach you.
+          </Text>
+          {TOPICS.map((t) => (
+            <View key={t.key} style={styles.toggleRow}>
+              <View style={styles.topicInfo}>
+                <Text style={styles.toggleLabel}>{t.label}</Text>
+                <Text style={styles.topicDesc}>{t.desc}</Text>
+              </View>
+              <Switch
+                value={topics[t.key]}
+                onValueChange={(v) => setTopic(t.key, v)}
+                trackColor={{ true: colors.primary }}
+                accessibilityLabel={t.label}
+              />
+            </View>
+          ))}
+        </SectionCard>
+
         {permission === 'granted' && (
           <SectionCard>
             <CardTitle>Scheduled on this phone</CardTitle>
@@ -177,6 +198,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   toggleLabel: { fontSize: 14, fontWeight: '600', color: colors.text },
+  topicInfo: { flex: 1, paddingRight: spacing.md },
+  topicDesc: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
 
   chipRow: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
   chip: {

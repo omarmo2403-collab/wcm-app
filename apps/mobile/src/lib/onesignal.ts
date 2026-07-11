@@ -16,12 +16,25 @@ export function initOneSignal(): void {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { OneSignal } = require('react-native-onesignal') as typeof import('react-native-onesignal');
     OneSignal.initialize(ONESIGNAL_APP_ID);
-    OneSignal.User.addTags({
-      prayer_times: 'true',
-      announcements: 'true',
-      events: 'true',
-    });
   } catch {
     // module not present (e.g. Expo Go) — remote push simply unavailable
+  }
+}
+
+/** Mirror the user's topic preferences onto OneSignal tags — the admin push
+ *  composer targets `tag topic = 'true'`, so removing a tag opts the user out. */
+export function syncTopicTags(topics: Record<string, boolean>): void {
+  if (Platform.OS === 'web') return;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { OneSignal } = require('react-native-onesignal') as typeof import('react-native-onesignal');
+    const on = Object.fromEntries(
+      Object.entries(topics).filter(([, v]) => v).map(([k]) => [k, 'true']),
+    );
+    const off = Object.keys(topics).filter((k) => !topics[k]);
+    if (Object.keys(on).length > 0) OneSignal.User.addTags(on);
+    if (off.length > 0) OneSignal.User.removeTags(off);
+  } catch {
+    /* remote push unavailable */
   }
 }

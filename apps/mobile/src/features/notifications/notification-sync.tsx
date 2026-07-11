@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 
 import { useJumuahTimes, usePrayerTimes } from '@/features/prayer-times/queries';
 import { initAnalytics, track } from '@/lib/analytics';
-import { initOneSignal } from '@/lib/onesignal';
+import { initOneSignal, syncTopicTags } from '@/lib/onesignal';
 import { registerBackgroundSync } from './background';
 import { usePrefs } from './prefs';
 import { configureNotificationHandling, syncPrayerNotifications } from './scheduler';
@@ -17,6 +17,11 @@ export function NotificationSync() {
   const timetable = usePrayerTimes();
   const jumuah = useJumuahTimes();
   const prefs = usePrefs((s) => s.prefs);
+  const topics = usePrefs((s) => s.topics);
+
+  useEffect(() => {
+    syncTopicTags(topics);
+  }, [topics]);
 
   useEffect(() => {
     configureNotificationHandling();
