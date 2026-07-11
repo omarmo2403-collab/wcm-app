@@ -6,15 +6,17 @@ import { colors, radii, spacing } from '@/theme/tokens';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
+// mirrors prototype #screen-more list exactly (order and items);
+// Stadium info stays reachable via the home notice strip
 const ITEMS: { icon: IconName; label: string; slug: string }[] = [
   { icon: 'business-outline', label: 'About the Masjid', slug: 'about' },
   { icon: 'newspaper-outline', label: 'Latest News', slug: 'news' },
+  { icon: 'help-circle-outline', label: 'Ask the Scholar', slug: 'ask-scholar' },
   { icon: 'compass-outline', label: 'Qibla Direction', slug: 'qibla' },
   { icon: 'call-outline', label: 'Contact Us', slug: 'contact' },
   { icon: 'notifications-outline', label: 'Notifications', slug: 'notifications' },
   { icon: 'ribbon-outline', label: 'Our Services', slug: 'services' },
   { icon: 'videocam-outline', label: '360° Virtual Tour', slug: 'tour' },
-  { icon: 'car-outline', label: 'Stadium Event Days', slug: 'stadium' },
 ];
 
 export default function MoreScreen() {
@@ -35,10 +37,10 @@ export default function MoreScreen() {
                 notifications: '/notification-settings',
                 about: '/about',
                 news: '/news',
+                'ask-scholar': '/ask-scholar',
                 qibla: '/qibla',
                 contact: '/contact',
                 services: '/services',
-                stadium: '/stadium',
               };
               const route = routes[item.slug];
               if (route) router.push(route as never);

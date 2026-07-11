@@ -13,12 +13,13 @@ function tabIcon(name: IconName) {
   );
 }
 
-/** Prototype header: logo icon + logotype, centred (index.html .header-title) */
+/** Prototype header: logo icon + logotype, centred (index.html .header-title).
+ *  Mark is a crisp crop of the high-res brand file (header-mark.png). */
 function BrandHeaderTitle() {
   return (
     <View style={headerStyles.wrap}>
       <Image
-        source={require('../../../assets/brand/logo-icon.svg')}
+        source={require('../../../assets/brand/header-mark.png')}
         style={headerStyles.icon}
         contentFit="contain"
       />
@@ -32,9 +33,10 @@ function BrandHeaderTitle() {
 }
 
 const headerStyles = StyleSheet.create({
-  wrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  icon: { width: 40, height: 40 },
-  text: { width: 170, height: 13 },
+  wrap: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // prototype: 40px mark + 13px wordmark; scaled up ~15% for phone density
+  icon: { width: 78, height: 46 },
+  text: { width: 196, height: 15 },
 });
 
 export default function TabLayout() {
@@ -44,8 +46,10 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.tabActive,
         tabBarInactiveTintColor: colors.tabInactive,
         headerStyle: { backgroundColor: colors.cardBackground },
-        headerTitleStyle: { color: colors.primary, fontWeight: '700' },
-        headerShadowVisible: true,
+        // prototype .screen-title-bar h2: 22px/700, dark text, left aligned
+        headerTitleStyle: { color: colors.text, fontWeight: '700', fontSize: 22 },
+        headerTitleAlign: 'left',
+        headerShadowVisible: false,
         sceneStyle: { backgroundColor: colors.screenBackground },
       }}
     >

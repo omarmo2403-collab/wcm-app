@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -19,11 +20,12 @@ import { useUi } from '@/stores/ui';
 
 /* ---------- Quick actions (prototype .quick-actions) ---------- */
 
+// prototype: .donate-icon --purple, .events-icon --green, .qibla-icon #2980B9, .scholar-icon #E67E22
 const ACTIONS = [
   { label: 'Donate', icon: 'hand-heart' as const, color: '#914BA1', route: '/donate' },
-  { label: 'Events', icon: 'calendar-month' as const, color: '#2980B9', route: '/events' },
-  { label: 'Qibla', icon: 'compass' as const, color: '#159778', route: '/qibla' },
-  { label: 'Timetable', icon: 'clock-outline' as const, color: '#E67E22', route: '/prayer-times' },
+  { label: 'Events', icon: 'calendar-month' as const, color: '#159778', route: '/events' },
+  { label: 'Qibla', icon: 'compass' as const, color: '#2980B9', route: '/qibla' },
+  { label: 'Scholar', icon: 'help-circle' as const, color: '#E67E22', route: '/ask-scholar' },
 ];
 
 export function QuickActions() {
@@ -80,7 +82,29 @@ export function NoticeStrip() {
 
 /* ---------- Banner carousel (prototype .banners-section) ---------- */
 
-function BannerCard({ banner, width }: { banner: Banner; width: number }) {
+// prototype gradients: .banner-sponsor / .banner-events / .banner-madrasah / .banner-scholar
+const BANNER_GRADIENTS: Record<string, [string, string, string]> = {
+  sponsor: ['#1B5E20', '#2E7D32', '#159778'],
+  events: ['#0D47A1', '#1565C0', '#1976D2'],
+  madrasah: ['#4A148C', '#6A1B9A', '#914BA1'],
+  scholar: ['#E65100', '#EF6C00', '#F57C00'],
+};
+const CTA_LABELS: Record<string, string> = {
+  sponsor: 'Donate Now',
+  events: 'View Events',
+  madrasah: 'Learn More',
+  scholar: 'Ask Now',
+};
+function bannerTheme(banner: Banner, index: number): string {
+  const t = (banner.action_target ?? '').toLowerCase();
+  if (t.includes('donate')) return 'sponsor';
+  if (t.includes('madrasah')) return 'madrasah';
+  if (t.includes('scholar')) return 'scholar';
+  if (t.includes('event')) return 'events';
+  return ['sponsor', 'madrasah', 'scholar'][index % 3] as string;
+}
+
+function BannerCard({ banner, width, index }: { banner: Banner; width: number; index: number }) {
   const router = useRouter();
   const open = () => {
     if (banner.action_type === 'screen' && banner.action_target) {
@@ -89,23 +113,32 @@ function BannerCard({ banner, width }: { banner: Banner; width: number }) {
       WebBrowser.openBrowserAsync(banner.action_target);
     }
   };
+  const theme = bannerTheme(banner, index);
   return (
     <Pressable style={[styles.banner, { width }]} onPress={open}>
+      <LinearGradient
+        colors={BANNER_GRADIENTS[theme] ?? BANNER_GRADIENTS.sponsor!}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       {banner.image_path && (
         <Image source={mediaUrl(banner.image_path)} style={StyleSheet.absoluteFill} contentFit="cover" />
       )}
       <View style={styles.bannerOverlay}>
         {banner.badge ? (
           <View style={styles.bannerBadge}>
-            <Text style={styles.bannerBadgeText}>{banner.badge}</Text>
+            <Text style={styles.bannerBadgeText}>{banner.badge.toUpperCase()}</Text>
           </View>
         ) : null}
         <Text style={styles.bannerTitle}>{banner.title}</Text>
         {banner.subtitle ? <Text style={styles.bannerSub}>{banner.subtitle}</Text> : null}
         {banner.action_type !== 'none' && (
-          <Text style={styles.bannerCta}>
-            Learn more <Ionicons name="arrow-forward" size={12} color="#fff" />
-          </Text>
+          <View style={styles.bannerCtaPill}>
+            <Text style={styles.bannerCta}>
+              {CTA_LABELS[theme] ?? 'Learn More'} <Ionicons name="arrow-forward" size={11} color="#fff" />
+            </Text>
+          </View>
         )}
       </View>
     </Pressable>
@@ -138,7 +171,7 @@ export function BannerCarousel() {
         contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
         onViewableItemsChanged={onViewable.current}
         viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
-        renderItem={({ item }) => <BannerCard banner={item} width={cardWidth} />}
+        renderItem={({ item, index }) => <BannerCard banner={item} width={cardWidth} index={index} />}
       />
       <View style={styles.dots}>
         {banners.data.map((b, i) => (
@@ -190,15 +223,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   action: { alignItems: 'center', width: 76 },
+  // prototype .quick-icon: 48x48, radius 14 (squircle, not circle)
   actionIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 5,
   },
-  actionLabel: { fontSize: 12, fontWeight: '600', color: colors.text },
+  actionLabel: { fontSize: 11, fontWeight: '500', color: colors.textSecondary },
 
   notice: {
     flexDirection: 'row',
@@ -215,26 +249,33 @@ const styles = StyleSheet.create({
   },
   noticeText: { flex: 1, fontSize: 12.5, color: colors.text, fontWeight: '600' },
 
+  // prototype .banner-img: min-height 160, content bottom-aligned, CTA pill
   banner: {
-    height: 140,
+    minHeight: 160,
     borderRadius: radii.card,
     overflow: 'hidden',
-    backgroundColor: colors.primaryPressed,
     marginTop: spacing.lg,
   },
-  bannerOverlay: { flex: 1, padding: spacing.lg, justifyContent: 'center' },
+  bannerOverlay: { flex: 1, padding: 18, justifyContent: 'flex-end' },
   bannerBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 9999,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  bannerBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  bannerTitle: { color: '#fff', fontSize: 19, fontWeight: '700' },
-  bannerSub: { color: 'rgba(255,255,255,0.9)', fontSize: 13, marginTop: 2 },
-  bannerCta: { color: '#fff', fontSize: 12.5, fontWeight: '700', marginTop: 10 },
+  bannerBadgeText: { color: '#fff', fontSize: 10, fontWeight: '600', letterSpacing: 1 },
+  bannerTitle: { color: '#fff', fontSize: 18, fontWeight: '700', lineHeight: 22 },
+  bannerSub: { color: 'rgba(255,255,255,0.9)', fontSize: 12, marginTop: 4, marginBottom: 10 },
+  bannerCtaPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 9999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  bannerCta: { color: '#fff', fontSize: 13, fontWeight: '600' },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: spacing.sm },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.border },
   dotActive: { backgroundColor: colors.primary },

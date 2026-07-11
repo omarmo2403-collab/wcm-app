@@ -52,6 +52,19 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
       { key: 'is_published', label: 'Published', type: 'bool' },
     ],
   },
+  scholar: {
+    table: 'scholar_questions',
+    title: 'Scholar Questions',
+    note: 'Questions submitted from the app. Reply by email, then set status to answered.',
+    orderBy: 'created_at',
+    columns: [
+      { key: 'created_at', label: 'Received', type: 'datetime' },
+      { key: 'name', label: 'Name', type: 'text' },
+      { key: 'email', label: 'Email', type: 'text' },
+      { key: 'question', label: 'Question', type: 'textarea' },
+      { key: 'status', label: 'Status', type: 'select', options: ['new', 'answered', 'archived'] },
+    ],
+  },
   notices: {
     table: 'notices',
     title: 'Home-screen Notices',
