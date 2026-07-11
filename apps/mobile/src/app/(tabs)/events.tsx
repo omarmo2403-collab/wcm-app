@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -7,6 +8,7 @@ import { useEvents, type WcmEvent } from '@/features/content/queries';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 function EventCard({ event }: { event: WcmEvent }) {
+  const router = useRouter();
   const d = new Date(event.starts_at);
   const day = d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: '2-digit' });
   const month = d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', month: 'short' });
@@ -16,7 +18,10 @@ function EventCard({ event }: { event: WcmEvent }) {
     : d.toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: 'numeric', minute: '2-digit' });
 
   return (
-    <View style={styles.eventCard}>
+    <Pressable
+      style={({ pressed }) => [styles.eventCard, pressed && styles.pressed]}
+      onPress={() => router.push(`/event/${event.id}` as never)}
+    >
       <View style={styles.dateBox}>
         <Text style={styles.dateDay}>{day}</Text>
         <Text style={styles.dateMonth}>{month}</Text>
@@ -31,7 +36,7 @@ function EventCard({ event }: { event: WcmEvent }) {
           </Text>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
