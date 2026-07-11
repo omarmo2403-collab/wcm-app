@@ -244,6 +244,7 @@ export function StadiumDays() {
       if (insertError) throw new Error(insertError.message);
 
       let scheduled = 0;
+      let skipped = 0;
       const failures: string[] = [];
       if (notify) {
         for (const d of days) {
@@ -258,12 +259,15 @@ export function StadiumDays() {
             send_after: sendAfter,
           });
           if (res.ok) scheduled++;
+          else if (res.error === 'duplicate_scheduled') skipped++;
           else failures.push(d.date);
         }
       }
       setStatus(
         `Saved ${days.length} stadium day(s) for ${monthNames} ✓` +
-        (notify ? ` — ${scheduled} notification(s) scheduled${failures.length ? `, failed for: ${failures.join(', ')}` : ''}` : ''),
+        (notify
+          ? ` — ${scheduled} notification(s) scheduled${skipped ? `, ${skipped} already scheduled (skipped)` : ''}${failures.length ? `, failed for: ${failures.join(', ')}` : ''}`
+          : ''),
       );
       setDays([]);
       setFileName('');

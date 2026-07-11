@@ -42,9 +42,10 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const key = Deno.env.get('ONESIGNAL_REST_API_KEY');
 
-  // action: 'list_scheduled' — ALL pending (scheduled, not yet sent) notifications,
-  // with audience topic and tap destination so staff can spot wrong ones
-  if (body.action === 'list_scheduled') {
+  // Fetch ALL pending (scheduled, not yet sent) notifications with audience
+  // topic and tap destination. Used by list_scheduled and by the
+  // duplicate-schedule guard on new sends.
+  async function fetchPending(): Promise<Record<string, unknown>[] | null> {
     const all: Record<string, unknown>[] = [];
     for (let offset = 0; offset < 200; offset += 50) {
       const resp = await fetch(
@@ -52,13 +53,13 @@ Deno.serve(async (req) => {
         { headers: { Authorization: `Key ${key}` } },
       );
       const result = await resp.json();
-      if (!resp.ok) return json({ ok: false, errors: result.errors ?? result }, 502);
+      if (!resp.ok) return null;
       const batch = (result.notifications ?? []) as Record<string, unknown>[];
       all.push(...batch);
       if (batch.length < 50) break;
     }
     const now = Date.now() / 1000;
-    const scheduled = all
+    return all
       .filter((n) =>
         !n.canceled && !n.completed_at && ((n.send_after as number | undefined) ?? 0) > now)
       .map((n) => {
@@ -73,6 +74,11 @@ Deno.serve(async (req) => {
           route: ((n.data as Record<string, unknown>)?.route as string | undefined) ?? null,
         };
       });
+  }
+
+  if (body.action === 'list_scheduled') {
+    const scheduled = await fetchPending();
+    if (scheduled === null) return json({ ok: false, errors: 'could not reach OneSignal' }, 502);
     return json({ ok: true, scheduled });
   }
 
@@ -99,6 +105,22 @@ Deno.serve(async (req) => {
     if (t < Date.now() + 60_000) return json({ error: 'send_after must be in the future' }, 400);
     if (t > Date.now() + 366 * 24 * 3600 * 1000) return json({ error: 'send_after too far ahead' }, 400);
     sendAfter = new Date(t).toISOString();
+
+    // duplicate guard: refuse a second notification to the SAME topic in the
+    // SAME minute — catches the same schedule being uploaded twice, or two
+    // sections (composer / template / stadium import) booking the same slot
+    const pending = await fetchPending();
+    if (pending === null) return json({ ok: false, errors: 'could not reach OneSignal' }, 502);
+    const targetMinute = Math.floor(t / 60_000);
+    const dup = pending.find((n) =>
+      n.topic === topic && Math.floor(((n.send_after as number) * 1000) / 60_000) === targetMinute);
+    if (dup) {
+      return json({
+        ok: false,
+        error: 'duplicate_scheduled',
+        message: `Already scheduled: "${dup.title}" goes to the same audience (${topic}) at that exact time. Cancel it in Scheduled Notifications first if you want to replace it.`,
+      }, 409);
+    }
   }
 
   // Opt-out topics also reach devices that never wrote tags; explicit

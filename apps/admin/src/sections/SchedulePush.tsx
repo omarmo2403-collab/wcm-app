@@ -248,6 +248,7 @@ export function SchedulePush() {
     if (!window.confirm(`Schedule ${valid.length} notification(s)? Each fires automatically at its UK time.`)) return;
     setSending(true);
     let ok = 0;
+    let skipped = 0;
     const failures: string[] = [];
     for (const r of valid) {
       const res = await callSendPush({
@@ -259,10 +260,15 @@ export function SchedulePush() {
         ...(r.route ? { route: r.route } : r.link ? { url: r.link } : {}),
       });
       if (res.ok) ok++;
+      else if (res.error === 'duplicate_scheduled') skipped++;
       else failures.push(`${r.date} ${r.time} "${r.title}": ${JSON.stringify(res.errors)}`);
     }
     setSending(false);
-    setStatus(`Scheduled ${ok}/${valid.length} ✓${failures.length ? ` — failed: ${failures.join('; ')}` : ''}`);
+    setStatus(
+      `Scheduled ${ok}/${valid.length} ✓` +
+      (skipped ? ` — ${skipped} skipped (same audience already scheduled at that time)` : '') +
+      (failures.length ? ` — failed: ${failures.join('; ')}` : ''),
+    );
     if (ok > 0) {
       setRows([]);
       setFileName('');

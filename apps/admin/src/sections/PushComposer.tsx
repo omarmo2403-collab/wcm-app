@@ -121,7 +121,9 @@ export function PushComposer() {
       ...(kind === 'general' && link ? { url: link } : {}),
       ...(sendAt ? { send_after: ukWallTimeToIso(sendAt) } : {}),
     });
-    setStatus(res.ok ? (sendAt ? `Scheduled for ${when} ✓` : 'Sent ✓') : `Failed: ${JSON.stringify(res.errors)}`);
+    setStatus(res.ok
+      ? (sendAt ? `Scheduled for ${when} ✓` : 'Sent ✓')
+      : `Failed: ${typeof res.message === 'string' ? res.message : JSON.stringify(res.errors)}`);
     setSending(false);
     if (res.ok) {
       setTitle('');
