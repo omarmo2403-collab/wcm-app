@@ -79,7 +79,12 @@ export default function PrayerTimesScreen() {
         </View>
 
         {timetable.isPending && <ActivityIndicator color={colors.primary} style={styles.spinner} />}
-        {!timetable.isPending && (timetable.data?.length ?? 0) === 0 && (
+        {timetable.isError && (
+          <Text style={styles.empty}>
+            Couldn&apos;t load the timetable — check your connection and try again.
+          </Text>
+        )}
+        {!timetable.isPending && !timetable.isError && (timetable.data?.length ?? 0) === 0 && (
           <Text style={styles.empty}>
             No timetable published for {monthLabel(month)} yet.
           </Text>

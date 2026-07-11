@@ -27,24 +27,30 @@ export default function QiblaScreen() {
       ? config.data.qibla_bearing_degrees
       : 119;
 
-  const [bearing, setBearing] = useState<number>(fallbackBearing);
+  const [ownBearing, setOwnBearing] = useState<number | null>(null); // from device location
   const [heading, setHeading] = useState<number | null>(null);
   const [sensorOk, setSensorOk] = useState(false);
+  // admin-configured Wembley bearing until (unless) device location refines it
+  const bearing = ownBearing ?? fallbackBearing;
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
     let sub: { remove: () => void } | undefined;
     let cancelled = false;
     (async () => {
-      // location refines the bearing; denied → Wembley fallback still correct locally
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const pos = await Location.getLastKnownPositionAsync() ??
-          await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
-        if (pos && !cancelled) setBearing(qiblaBearing(pos.coords.latitude, pos.coords.longitude));
-        // Preferred compass: OS sensor fusion via watchHeadingAsync — tilt-
-        // compensated and declination-corrected true heading, far more
-        // accurate than the raw magnetometer maths below.
+      let locationGranted = false;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        locationGranted = status === 'granted';
+      } catch {
+        /* treat as denied */
+      }
+
+      // Compass first — heading is independent of position, and a slow GPS
+      // fix must not leave the needle dead. Preferred: OS sensor fusion via
+      // watchHeadingAsync (tilt-compensated, declination-corrected).
+      let haveHeadingWatch = false;
+      if (locationGranted) {
         try {
           const headingSub = await Location.watchHeadingAsync((h) => {
             const value = h.trueHeading >= 0 ? h.trueHeading : h.magHeading;
@@ -55,26 +61,41 @@ export default function QiblaScreen() {
           });
           if (cancelled) headingSub.remove();
           else sub = headingSub;
-          return;
+          haveHeadingWatch = true;
         } catch {
           /* fall through to raw magnetometer */
         }
       }
-      const available = await Magnetometer.isAvailableAsync();
-      if (!available || cancelled) return;
-      setSensorOk(true);
-      Magnetometer.setUpdateInterval(120);
-      sub = Magnetometer.addListener(({ x, y }) => {
-        let angle = (Math.atan2(y, x) * 180) / Math.PI;
-        angle = (angle + 360) % 360;
-        // device heading: 0 = phone top pointing north
-        setHeading((450 - angle) % 360);
-      });
+      if (!haveHeadingWatch) {
+        const available = await Magnetometer.isAvailableAsync().catch(() => false);
+        if (available && !cancelled) {
+          setSensorOk(true);
+          Magnetometer.setUpdateInterval(120);
+          sub = Magnetometer.addListener(({ x, y }) => {
+            // device heading θ (0 = phone top at north): Bx=-sinθ, By=cosθ
+            // → atan2(y,x) = 90°+θ, so θ = atan2deg − 90 (mod 360)
+            const angle = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+            setHeading((angle - 90 + 360) % 360);
+          });
+        }
+      }
+
+      // Position refines the bearing; failure (GPS off, timeout) keeps Wembley
+      if (locationGranted) {
+        try {
+          const pos = await Location.getLastKnownPositionAsync() ??
+            await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+          if (pos && !cancelled) setOwnBearing(qiblaBearing(pos.coords.latitude, pos.coords.longitude));
+        } catch {
+          /* location services off — Wembley fallback stands */
+        }
+      }
     })();
     return () => {
       cancelled = true;
       sub?.remove();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const needleRotation = heading == null ? 0 : (bearing - heading + 360) % 360;
@@ -103,7 +124,7 @@ export default function QiblaScreen() {
         </View>
 
         <Text style={styles.info}>
-          Qibla from {sensorOk && heading != null ? 'your location' : 'Wembley'}:{' '}
+          Qibla from {ownBearing != null ? 'your location' : 'Wembley'}:{' '}
           <Text style={styles.bold}>{Math.round(bearing)}°</Text>
         </Text>
         <Text style={styles.note}>

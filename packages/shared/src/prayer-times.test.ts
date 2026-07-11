@@ -115,6 +115,16 @@ describe('buildNotificationSchedule', () => {
     expect(off.filter((s) => s.prayer === 'jumuah')).toHaveLength(0);
   });
 
+  it("suppresses the Zuhr alert on Fridays when Jumu'ah alerts are on (no duplicate at the Zuhr hour)", () => {
+    // 2026-07-17 is a Friday
+    const withJumuah = buildNotificationSchedule(days(10), jumuah, DEFAULT_PREFS, now);
+    expect(withJumuah.find((s) => s.id === '2026-07-17:zuhr')).toBeUndefined();
+    expect(withJumuah.find((s) => s.id === '2026-07-16:zuhr')).toBeDefined(); // Thursday unaffected
+    // with Jumu'ah alerts off, Friday Zuhr behaves like any other day
+    const noJumuah = buildNotificationSchedule(days(10), jumuah, { ...DEFAULT_PREFS, jumuah: 'off' }, now);
+    expect(noJumuah.find((s) => s.id === '2026-07-17:zuhr')).toBeDefined();
+  });
+
   it('never exceeds the iOS pending cap, even with 60 days of data', () => {
     const sched = buildNotificationSchedule(days(20).concat(days(20, 1).map((d, i) => ({ ...d, date: `2026-08-${String(i + 1).padStart(2, '0')}` }))), jumuah, DEFAULT_PREFS, now);
     expect(sched.length).toBeLessThanOrEqual(IOS_PENDING_CAP);

@@ -43,6 +43,11 @@ export default function NewsScreen() {
         ListEmptyComponent={
           news.isPending ? (
             <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
+          ) : news.isError ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>Couldn&apos;t load news</Text>
+              <Text style={styles.emptyText}>Check your connection and pull to refresh.</Text>
+            </View>
           ) : (
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>No news yet</Text>
@@ -50,6 +55,8 @@ export default function NewsScreen() {
             </View>
           )
         }
+        refreshing={news.isRefetching}
+        onRefresh={() => news.refetch()}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.title}>{item.title}</Text>
@@ -57,7 +64,7 @@ export default function NewsScreen() {
             {item.published_at && (
               <Text style={styles.date}>
                 {new Date(item.published_at).toLocaleDateString('en-GB', {
-                  day: 'numeric', month: 'short', year: 'numeric',
+                  timeZone: 'Europe/London', day: 'numeric', month: 'short', year: 'numeric',
                 })}
               </Text>
             )}

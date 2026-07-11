@@ -15,6 +15,11 @@ export const TIMETABLE_SYNC_TASK = 'wcm-timetable-sync';
  */
 TaskManager.defineTask(TIMETABLE_SYNC_TASK, async () => {
   try {
+    // Headless launch: zustand persist rehydrates asynchronously, and reading
+    // the store before that finishes returns the all-on defaults — which
+    // would re-arm alerts a user has switched off.
+    await usePrefs.persist.rehydrate();
+
     const [times, jumuah] = await Promise.all([
       supabase.from('prayer_times').select('*').gte('date', londonToday(new Date())).order('date').limit(60),
       supabase.from('jumuah_times').select('*').eq('is_active', true).order('sort_order'),
@@ -22,9 +27,10 @@ TaskManager.defineTask(TIMETABLE_SYNC_TASK, async () => {
     if (times.error || jumuah.error) return BackgroundTask.BackgroundTaskResult.Failed;
 
     const prefs = usePrefs.getState().prefs;
+    // one malformed row must not kill the whole reschedule — skip it instead
     await syncPrayerNotifications(
-      times.data.map((r) => dayTimetableSchema.parse(r)),
-      jumuah.data.map((r) => jumuahTimeSchema.parse(r)),
+      times.data.map((r) => dayTimetableSchema.safeParse(r)).filter((p) => p.success).map((p) => p.data),
+      jumuah.data.map((r) => jumuahTimeSchema.safeParse(r)).filter((p) => p.success).map((p) => p.data),
       prefs,
     );
     return BackgroundTask.BackgroundTaskResult.Success;

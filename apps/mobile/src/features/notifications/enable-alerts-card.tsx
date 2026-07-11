@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radii, spacing } from '@/theme/tokens';
 import { usePrefs } from './prefs';
-import { getPermissionStatus, requestPermission } from './scheduler';
+import { getPermissionStatus, requestPermission, requestResync } from './scheduler';
 
 /**
  * Soft notification onboarding (REBUILD_PLAN §4): value proposition first,
@@ -29,7 +29,13 @@ export function EnableAlertsCard() {
       </View>
       <Pressable
         style={styles.enable}
-        onPress={() => requestPermission().then(() => setVisible(false))}
+        onPress={() =>
+          requestPermission().then((granted) => {
+            setVisible(false);
+            // every sync before the grant no-opped — arm the alerts now
+            if (granted) requestResync();
+          })
+        }
       >
         <Text style={styles.enableText}>Enable</Text>
       </Pressable>

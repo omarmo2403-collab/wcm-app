@@ -117,11 +117,14 @@ export default function App() {
     );
   }
 
+  // editors can manage content and send pushes; App Config stays admin-only
+  const nav = role === 'admin' ? NAV : NAV.filter((n) => n.key !== 'config');
+
   return (
     <div className="shell">
       <nav className="sidebar">
         <h1>WCM Admin</h1>
-        {NAV.map((n) => (
+        {nav.map((n) => (
           <button
             key={n.key}
             className={section === n.key ? 'active' : ''}

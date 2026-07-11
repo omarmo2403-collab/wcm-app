@@ -111,7 +111,9 @@ export function PrayerWidget() {
             </Text>
           </View>
           <Text style={styles.nextTime}>
-            {next.date === today.date ? fmt(today[`${next.prayer}_iqamah`]) : fmt(today.fajr_iqamah)}
+            {/* after Isha the next prayer is TOMORROW's Fajr — show that row's
+                time, not today's (they differ whenever the iqamah changes) */}
+            {fmt((timetable.data?.find((d) => d.date === next.date) ?? today)[`${next.prayer}_iqamah`])}
           </Text>
         </View>
       )}

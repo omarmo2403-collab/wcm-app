@@ -6,7 +6,7 @@ import { initAnalytics, track } from '@/lib/analytics';
 import { initOneSignal, syncTopicTags } from '@/lib/onesignal';
 import { registerBackgroundSync } from './background';
 import { usePrefs } from './prefs';
-import { configureNotificationHandling, syncPrayerNotifications } from './scheduler';
+import { configureNotificationHandling, onResyncRequest, syncPrayerNotifications } from './scheduler';
 
 /**
  * Invisible component mounted inside the providers: keeps the OS notification
@@ -38,17 +38,29 @@ export function NotificationSync() {
     const days = timetable.data;
     const sittings = jumuah.data;
 
-    syncPrayerNotifications(days, sittings, prefs).then((count) => {
-      if (count > 0) track('notifications_rescheduled', { count, first_date: days[0]?.date ?? null });
-    });
+    const sync = () =>
+      syncPrayerNotifications(days, sittings, prefs)
+        .then((count) => {
+          if (count > 0) track('notifications_rescheduled', { count, first_date: days[0]?.date ?? null });
+        })
+        .catch(() => track('notifications_sync_failed', {}));
+
+    sync();
+
+    // permission cards / settings ask for a resync right after a grant —
+    // every sync before the grant was a no-op
+    onResyncRequest(sync);
 
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         timetable.refetch();
-        syncPrayerNotifications(days, sittings, prefs);
+        sync();
       }
     });
-    return () => sub.remove();
+    return () => {
+      onResyncRequest(null);
+      sub.remove();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timetable.data, jumuah.data, prefs]);
 

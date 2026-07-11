@@ -74,28 +74,46 @@ function cellTime(v: unknown): string {
     return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
   }
   const s = String(v ?? '').trim();
-  const m = s.match(/^(\d{1,2}):(\d{2})/);
-  return m ? `${m[1]!.padStart(2, '0')}:${m[2]}` : s;
+  const m = s.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+  if (!m) return s;
+  let h = Number(m[1]);
+  // volunteers type "6:30 PM" no matter what the template says — honour it
+  if (m[3]?.toLowerCase() === 'pm' && h !== 12) h += 12;
+  if (m[3]?.toLowerCase() === 'am' && h === 12) h = 0;
+  return `${String(h).padStart(2, '0')}:${m[2]}`;
+}
+
+/** true only for a real calendar date — Date.UTC silently rolls "2026-06-31" into July */
+function isRealDate(date: string): boolean {
+  const [y, mo, d] = date.split('-').map(Number);
+  const dt = new Date(Date.UTC(y!, mo! - 1, d!));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo! - 1 && dt.getUTCDate() === d;
 }
 
 function validateRow(r: ParsedRow): string | undefined {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(r.date)) return `invalid date "${r.date}" (use YYYY-MM-DD or DD/MM/YYYY)`;
+  if (!isRealDate(r.date)) return `"${r.date}" is not a real calendar date`;
   if (!/^\d{2}:\d{2}$/.test(r.time)) return `invalid time "${r.time}" (use HH:MM, 24-hour)`;
+  if (Number(r.time.slice(0, 2)) > 23 || Number(r.time.slice(3)) > 59) return `invalid time "${r.time}"`;
   if (!TOPICS.includes(r.topic as (typeof TOPICS)[number])) return `topic must be one of: ${TOPICS.join(', ')}`;
   if (!r.title.trim()) return 'title is empty';
+  if (r.title.length > 65) return `title too long (${r.title.length}/65 characters)`;
   if (!r.message.trim()) return 'message is empty';
+  if (r.message.length > 178) return `message too long (${r.message.length}/178 characters)`;
   if (Date.parse(ukToIso(r.date, r.time)) < Date.now() + 60_000) return 'time is in the past';
   return undefined;
 }
 
 function rowsFromMatrix(matrix: unknown[][], events: EventOption[]): ParsedRow[] {
   const rows: ParsedRow[] = [];
+  const seen = new Set<string>(); // topic|date|time within this one file
   for (const cells of matrix) {
     const [date, time, topic, title, message, link, eventName] = cells;
     const dateS = cellDate(date);
-    // skip header / example / empty rows
-    if (!dateS || /^date$/i.test(dateS) || String(title ?? '').startsWith('EXAMPLE')) continue;
-    if (!String(date ?? '').trim() && !String(title ?? '').trim()) continue;
+    // skip header / example / fully-empty rows — but a row with content and
+    // no date must SURFACE as an error, not vanish silently
+    if (/^date$/i.test(dateS) || String(title ?? '').startsWith('EXAMPLE')) continue;
+    if (!String(date ?? '').trim() && !String(title ?? '').trim() && !String(message ?? '').trim()) continue;
     const linkS = String(link ?? '').trim();
     const row: ParsedRow = {
       date: dateS,
@@ -130,6 +148,12 @@ function rowsFromMatrix(matrix: unknown[][], events: EventOption[]): ParsedRow[]
       }
     }
     row.error = eventError ?? validateRow(row);
+    // two identical (audience, date, time) rows in one file = certain double send
+    if (!row.error) {
+      const key = `${row.topic}|${row.date}|${row.time}`;
+      if (seen.has(key)) row.error = 'duplicate of another row in this file (same audience, date and time)';
+      else seen.add(key);
+    }
     rows.push(row);
   }
   return rows;
@@ -206,6 +230,7 @@ export function SchedulePush() {
     supabase
       .from('events')
       .select('id,title,starts_at')
+      .eq('is_published', true) // drafts would deep-link to a page the app can't load
       .gte('starts_at', new Date().toISOString())
       .order('starts_at')
       .limit(30)
@@ -225,9 +250,14 @@ export function SchedulePush() {
       if (file.name.toLowerCase().endsWith('.docx')) {
         matrix = await parseDocxTable(buf);
       } else {
-        const wb = XLSX.read(buf, { cellDates: true });
+        // CSVs must stay TEXT: SheetJS's fuzzy date pass runs "07/08/2026"
+        // through new Date(), which reads it US-style (8 July) — our own
+        // DD/MM regex in cellDate is the only safe path. Real .xlsx files
+        // keep cellDates (true serials, no ambiguity).
+        const isCsv = file.name.toLowerCase().endsWith('.csv');
+        const wb = XLSX.read(buf, isCsv ? { raw: true } : { cellDates: true });
         const ws = wb.Sheets[wb.SheetNames[0]!]!;
-        matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as unknown[][];
+        matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true }) as unknown[][];
       }
       const parsed = rowsFromMatrix(matrix, events);
       setRows(parsed);
@@ -249,7 +279,7 @@ export function SchedulePush() {
     setSending(true);
     let ok = 0;
     let skipped = 0;
-    const failures: string[] = [];
+    const failedRows: ParsedRow[] = [];
     for (const r of valid) {
       const res = await callSendPush({
         title: r.title,
@@ -261,19 +291,20 @@ export function SchedulePush() {
       });
       if (res.ok) ok++;
       else if (res.error === 'duplicate_scheduled') skipped++;
-      else failures.push(`${r.date} ${r.time} "${r.title}": ${JSON.stringify(res.errors)}`);
+      else failedRows.push({ ...r, error: `failed: ${typeof res.message === 'string' ? res.message : JSON.stringify(res.errors)}` });
     }
     setSending(false);
     setStatus(
       `Scheduled ${ok}/${valid.length} ✓` +
       (skipped ? ` — ${skipped} skipped (same audience already scheduled at that time)` : '') +
-      (failures.length ? ` — failed: ${failures.join('; ')}` : ''),
+      (failedRows.length ? ` — ${failedRows.length} failed (kept below; fix and press Schedule again)` : ''),
     );
-    if (ok > 0) {
-      setRows([]);
-      setFileName('');
-      refreshScheduled();
-    }
+    // keep failed + invalid rows so a partial failure never loses track of
+    // which notifications still need scheduling or fixing
+    const leftover = [...failedRows, ...rows.filter((r) => r.error)];
+    setRows(leftover);
+    if (leftover.length === 0) setFileName('');
+    refreshScheduled();
   };
 
   const cancel = async (item: ScheduledItem) => {

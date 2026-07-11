@@ -1,8 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { AppState, Platform } from 'react-native';
 
 import { AppErrorBoundary } from '@/components/error-boundary';
 import { NotificationSync } from '@/features/notifications/notification-sync';
@@ -21,11 +22,23 @@ export default function RootLayout() {
     SplashScreen.hideAsync();
   }, []);
 
+  // React Query's focus refetching is a no-op on native unless focusManager
+  // is fed AppState — without this, tab screens that stay mounted (expo-router
+  // keeps them alive) would show stale content for the app's whole lifetime.
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const sub = AppState.addEventListener('change', (state) => {
+      focusManager.setFocused(state === 'active');
+    });
+    return () => sub.remove();
+  }, []);
+
   return (
     <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <NotificationSync />
-        <StatusBar style="light" />
+        {/* dark icons: every header in the app is white */}
+        <StatusBar style="dark" />
       {/* prototype sub-screen header: white bar, green 15px title, dark arrow */}
       <Stack
         screenOptions={{

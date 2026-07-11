@@ -10,6 +10,7 @@ import {
   getPermissionStatus,
   getScheduledSummary,
   requestPermission,
+  requestResync,
   sendTestNotification,
   type ScheduledSummary,
 } from '@/features/notifications/scheduler';
@@ -63,7 +64,15 @@ export default function NotificationSettingsScreen() {
             <Text style={styles.note}>
               Allow notifications to be reminded 15 minutes before every iqamah.
             </Text>
-            <Pressable style={styles.button} onPress={() => requestPermission().then(refresh)}>
+            <Pressable
+              style={styles.button}
+              onPress={() =>
+                requestPermission().then((granted) => {
+                  if (granted) requestResync();
+                  refresh();
+                })
+              }
+            >
               <Text style={styles.buttonText}>Enable notifications</Text>
             </Pressable>
           </SectionCard>

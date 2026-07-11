@@ -84,11 +84,18 @@ export function Timetable() {
   );
 
   const save = async () => {
+    // never fill gaps with a default — a blank cell would otherwise become a
+    // 00:00 time and fire midnight prayer alerts on congregants' phones
+    const incomplete = dirtyDates.filter((d) => PRAYER_FIELDS.some((f) => !rows[d]![f]));
+    if (incomplete.length > 0) {
+      setStatus(`Error: not saved — missing time(s) on ${incomplete.join(', ')}. Fill every column for those days first.`);
+      return;
+    }
     setStatus('Saving…');
     const payload = dirtyDates.map((d) => {
       const row = rows[d]!;
       const out: Record<string, string> = { date: d };
-      for (const f of PRAYER_FIELDS) out[f] = row[f] || '00:00';
+      for (const f of PRAYER_FIELDS) out[f] = row[f]!;
       return out;
     });
     const { error } = await supabase.from('prayer_times').upsert(payload);
@@ -106,7 +113,8 @@ export function Timetable() {
       }
     }
     if (changes.length > 0) {
-      const body = changes.join('. ');
+      // OneSignal message limit — many simultaneous changes must still send
+      const body = changes.join('. ').slice(0, 178);
       if (window.confirm(`Saved. Notify the congregation now?\n\n"${body}"`)) {
         const res = await callSendPush({
           title: 'Prayer time change',
@@ -168,10 +176,19 @@ export function Timetable() {
   const importCsv = async () => {
     setStatus('Importing…');
     const lines = csvText.trim().split(/\r?\n/).filter((l) => l && !l.startsWith('date'));
+    // a short line means a missing time — refuse rather than defaulting to 00:00
+    const bad = lines.filter((line) => {
+      const parts = line.split(',').map((s) => s.trim());
+      return parts.length < PRAYER_FIELDS.length + 1 || parts.slice(0, PRAYER_FIELDS.length + 1).some((p) => !p);
+    });
+    if (bad.length > 0) {
+      setStatus(`Import error: ${bad.length} line(s) have missing values — every row needs a date and all ${PRAYER_FIELDS.length} times. First bad line: "${bad[0]!.slice(0, 60)}"`);
+      return;
+    }
     const payload = lines.map((line) => {
       const parts = line.split(',').map((s) => s.trim());
       const out: Record<string, string> = { date: parts[0]! };
-      PRAYER_FIELDS.forEach((f, i) => { out[f] = parts[i + 1] ?? '00:00'; });
+      PRAYER_FIELDS.forEach((f, i) => { out[f] = parts[i + 1]!; });
       return out;
     });
     const { error } = await supabase.from('prayer_times').upsert(payload);

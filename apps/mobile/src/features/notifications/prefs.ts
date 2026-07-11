@@ -103,10 +103,19 @@ export const usePrefs = create<NotificationPrefsState>()(
           prefs?: NotificationPrefs;
           promptDismissed?: boolean;
         };
+        const prayerTimesOn = old?.topics?.prayer_times ?? true;
+        // In v2 prayer_times is a MASTER switch coupled to prefs.enabled — a
+        // migrated v1 pair could disagree (switch off, alerts still armed), so
+        // derive the per-prayer prefs from the switch instead of carrying both.
+        const prefs: NotificationPrefs = {
+          ...(old?.prefs ?? DEFAULT_PREFS),
+          enabled: prayerTimesOn ? ALL_ON : ALL_OFF,
+          jumuah: prayerTimesOn ? 'both' : 'off',
+        };
         return {
-          prefs: old?.prefs ?? { ...DEFAULT_PREFS, jumuah: 'both' as const },
+          prefs,
           topics: {
-            prayer_times: old?.topics?.prayer_times ?? true,
+            prayer_times: prayerTimesOn,
             events: old?.topics?.events ?? true,
             stadium: old?.topics?.stadium ?? true,
           },

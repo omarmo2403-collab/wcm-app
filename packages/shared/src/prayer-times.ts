@@ -74,9 +74,14 @@ export function buildNotificationSchedule(
 
   for (const day of sorted) {
     const dayAlerts: ScheduledAlert[] = [];
+    // On Fridays the congregation prays Jumu'ah, not a Zuhr jama'ah — with
+    // Jumu'ah alerts on, a separate Zuhr alert would be a duplicate (the first
+    // sitting is at the Zuhr hour).
+    const jumuahDay = prefs.jumuah !== 'off' && dayOfWeek(day.date) === 5;
 
     for (const prayer of PRAYERS) {
       if (!prefs.enabled[prayer]) continue;
+      if (prayer === 'zuhr' && jumuahDay) continue;
       const { iqamahAt } = prayerTimes(day, prayer);
       const fireAt = new Date(iqamahAt.getTime() - prefs.leadMinutes * 60_000);
       if (fireAt.getTime() <= now.getTime()) continue;
@@ -91,7 +96,7 @@ export function buildNotificationSchedule(
       });
     }
 
-    if (prefs.jumuah !== 'off' && dayOfWeek(day.date) === 5) {
+    if (jumuahDay) {
       const wanted =
         prefs.jumuah === 'both' ? sittings
         : prefs.jumuah === 'second' ? sittings.slice(1, 2)
@@ -101,7 +106,8 @@ export function buildNotificationSchedule(
         const fireAt = new Date(khutbahAt.getTime() - prefs.leadMinutes * 60_000);
         if (fireAt.getTime() <= now.getTime()) continue;
         dayAlerts.push({
-          id: `${day.date}:jumuah:${prefs.jumuah === 'second' ? 'second' : i === 0 ? 'first' : 'second'}`,
+          // index-based so a third sitting could never collide with the second
+          id: `${day.date}:jumuah:${prefs.jumuah === 'second' ? 1 : i}`,
           date: day.date,
           prayer: 'jumuah',
           fireAt,

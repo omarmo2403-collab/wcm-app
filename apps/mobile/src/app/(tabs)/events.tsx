@@ -87,6 +87,12 @@ export default function EventsScreen() {
       ListEmptyComponent={
         events.isPending ? (
           <ActivityIndicator color={colors.primary} style={styles.spinner} />
+        ) : events.isError ? (
+          <View style={styles.empty}>
+            <Ionicons name="cloud-offline-outline" size={40} color={colors.textMuted} />
+            <Text style={styles.emptyTitle}>Couldn&apos;t load events</Text>
+            <Text style={styles.emptyText}>Check your connection and pull to refresh.</Text>
+          </View>
         ) : (
           <View style={styles.empty}>
             <Ionicons name="calendar-outline" size={40} color={colors.textMuted} />
@@ -97,6 +103,8 @@ export default function EventsScreen() {
           </View>
         )
       }
+      refreshing={events.isRefetching}
+      onRefresh={() => events.refetch()}
       renderItem={({ item }) => <EventCard event={item} />}
     />
   );

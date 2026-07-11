@@ -159,7 +159,13 @@ function toInput(value: unknown, type: ColumnType): string | boolean {
 
 function fromInput(value: string | boolean, type: ColumnType): unknown {
   if (type === 'bool') return Boolean(value);
-  if (typeof value !== 'string' || value === '') return type === 'number' ? 0 : null;
+  if (typeof value !== 'string' || value === '') {
+    if (type === 'number') return 0;
+    // empty TEXT stays '' — most text columns are NOT NULL DEFAULT '', and an
+    // explicit null both fails inserts and makes clearing a field impossible
+    if (type === 'text' || type === 'textarea') return '';
+    return null; // datetime / image / video / select: nullable by design
+  }
   if (type === 'number') return Number(value);
   if (type === 'datetime') return new Date(value).toISOString();
   return value;
@@ -175,7 +181,16 @@ function Editor({
   onDone: (changed: boolean) => void;
 }) {
   const [values, setValues] = useState<Record<string, string | boolean>>(() =>
-    Object.fromEntries(config.columns.map((c) => [c.key, toInput(row?.[c.key], c.type)])),
+    Object.fromEntries(
+      config.columns.map((c) => [
+        c.key,
+        // selects must START on a real option — '' matches none, and an
+        // untouched select would otherwise submit null into a NOT NULL column
+        row == null && c.type === 'select'
+          ? (c.options?.[0] ?? '')
+          : toInput(row?.[c.key], c.type),
+      ]),
+    ),
   );
   const [err, setErr] = useState('');
 

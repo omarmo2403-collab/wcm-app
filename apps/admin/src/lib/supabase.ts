@@ -9,17 +9,22 @@ export const supabase = createClient(SUPABASE_URL, ANON_KEY);
 export async function callSendPush(
   payload: Record<string, unknown>,
 ): Promise<{ ok: boolean; errors?: unknown; [k: string]: unknown }> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${session?.access_token ?? ''}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-  const out = await resp.json().catch(() => ({}));
-  // spread first: the function's payload (scheduled list, recipients, …) must
-  // survive, but ok/errors are normalised here and win over the raw fields
-  return { ...out, ok: resp.ok && out.ok !== false, errors: out.errors ?? (resp.ok ? null : out) };
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session?.access_token ?? ''}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    const out = await resp.json().catch(() => ({}));
+    // spread first: the function's payload (scheduled list, recipients, …) must
+    // survive, but ok/errors are normalised here and win over the raw fields
+    return { ...out, ok: resp.ok && out.ok !== false, errors: out.errors ?? (resp.ok ? null : out) };
+  } catch {
+    // a network blip must return a normal failure, not wedge the calling UI
+    return { ok: false, errors: 'network error — check your connection and try again', message: 'Network error — check your connection and try again.' };
+  }
 }

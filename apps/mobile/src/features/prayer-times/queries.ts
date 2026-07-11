@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   dayTimetableSchema,
   jumuahTimeSchema,
@@ -9,11 +9,22 @@ import {
 
 import { supabase } from '@/lib/supabase';
 
+/** One malformed admin row must not blank the widget or stop alert syncs. */
+function parseDays(rows: unknown[]): DayTimetable[] {
+  return rows
+    .map((row) => dayTimetableSchema.safeParse(row))
+    .filter((p) => p.success)
+    .map((p) => p.data);
+}
+
 /** Timetable from today (London) forward — the notification scheduler and widget share this. */
 export function usePrayerTimes() {
   return useQuery({
     queryKey: ['prayer_times', londonToday(new Date())],
     staleTime: 5 * 60 * 1000,
+    // at London midnight the key rolls over; keep showing yesterday's cache
+    // (it contains today's row) instead of flashing a spinner mid-use
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<DayTimetable[]> => {
       const { data, error } = await supabase
         .from('prayer_times')
@@ -22,7 +33,7 @@ export function usePrayerTimes() {
         .order('date')
         .limit(60);
       if (error) throw error;
-      return data.map((row) => dayTimetableSchema.parse(row));
+      return parseDays(data);
     },
   });
 }
@@ -40,7 +51,7 @@ export function useMonthTimetable(month: string) {
         .lte('date', `${month}-31`)
         .order('date');
       if (error) throw error;
-      return data.map((row) => dayTimetableSchema.parse(row));
+      return parseDays(data);
     },
   });
 }

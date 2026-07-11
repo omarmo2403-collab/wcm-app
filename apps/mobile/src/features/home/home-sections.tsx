@@ -16,7 +16,7 @@ import {
 
 
 import { colors, radii, spacing } from '@/theme/tokens';
-import { mediaUrl, useBanners, useGallery, useNotices, type Banner } from './queries';
+import { mediaUrl, useBanners, useNotices, type Banner } from './queries';
 import { useUi } from '@/stores/ui';
 
 /* ---------- Quick actions (prototype .quick-actions) ---------- */
@@ -69,7 +69,12 @@ export function NoticeStrip() {
 
   // amber gradient alert banner — deliberately prominent (Omar, 12 Jul 2026)
   return (
-    <Pressable style={({ pressed }) => [styles.notice, pressed && styles.pressed]} onPress={open}>
+    <Pressable
+      style={({ pressed }) => [styles.notice, pressed && styles.pressed]}
+      onPress={open}
+      accessibilityRole="button"
+      accessibilityLabel={`Notice: ${notice.message}`}
+    >
       <LinearGradient
         colors={['#F9A825', '#F57C00']}
         start={{ x: 0, y: 0 }}
@@ -77,7 +82,11 @@ export function NoticeStrip() {
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.noticeIcon}>
-        <MaterialCommunityIcons name="car" size={19} color="#E65100" />
+        <MaterialCommunityIcons
+          name={(notice.icon as 'car') || 'alert-circle-outline'}
+          size={19}
+          color="#E65100"
+        />
       </View>
       <View style={styles.noticeBody}>
         <Text style={styles.noticeLabel}>NOTICE</Text>
@@ -113,7 +122,7 @@ function bannerTheme(banner: Banner, index: number): string {
 
 /** youtu.be/xyz | youtube.com/watch?v=xyz -> video id (null for other URLs) */
 function youtubeId(url: string): string | null {
-  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]{6,})/);
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/|live\/))([\w-]{6,})/);
   return m?.[1] ?? null;
 }
 
@@ -138,7 +147,12 @@ function BannerCard({ banner, width, index }: { banner: Banner; width: number; i
         ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg`
         : null;
     return (
-      <Pressable style={[styles.banner, styles.mediaBanner, { width }]} onPress={open}>
+      <Pressable
+        style={[styles.banner, styles.mediaBanner, { width }]}
+        onPress={open}
+        accessibilityRole="button"
+        accessibilityLabel={banner.title ? `Play video: ${banner.title}` : 'Play video'}
+      >
         {thumb ? (
           <Image source={thumb} style={StyleSheet.absoluteFill} contentFit="cover" />
         ) : (
@@ -238,37 +252,6 @@ export function BannerCarousel() {
           <View key={b.id} style={[styles.dot, i === index && styles.dotActive]} />
         ))}
       </View>
-    </View>
-  );
-}
-
-/* ---------- Gallery preview (prototype .gallery-section) ---------- */
-
-export function GalleryPreview() {
-  const gallery = useGallery();
-  const router = useRouter();
-  if (!gallery.data || gallery.data.length === 0) return null;
-
-  return (
-    <View style={styles.gallerySection}>
-      <View style={styles.galleryHeader}>
-        <Text style={styles.galleryTitle}>Gallery</Text>
-        <Pressable onPress={() => router.push('/gallery' as never)} accessibilityLabel="See all photos">
-          <Text style={styles.seeAll}>
-            See All <Ionicons name="chevron-forward" size={12} color={colors.primary} />
-          </Text>
-        </Pressable>
-      </View>
-      <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        data={gallery.data}
-        keyExtractor={(g) => g.id}
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
-        renderItem={({ item }) => (
-          <Image source={mediaUrl(item.storage_path)} style={styles.galleryPhoto} contentFit="cover" />
-        )}
-      />
     </View>
   );
 }

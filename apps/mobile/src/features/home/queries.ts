@@ -60,25 +60,3 @@ export function useNotices() {
   });
 }
 
-const gallerySchema = z.object({
-  id: z.string(),
-  storage_path: z.string(),
-  caption: z.string().nullable(),
-});
-export type GalleryImage = z.infer<typeof gallerySchema>;
-
-export function useGallery() {
-  return useQuery({
-    queryKey: ['gallery'],
-    staleTime: 10 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('gallery_images')
-        .select('id,storage_path,caption')
-        .eq('is_published', true)
-        .order('sort_order');
-      if (error) throw error;
-      return data.map((r) => gallerySchema.parse(r));
-    },
-  });
-}

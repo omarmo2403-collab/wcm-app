@@ -37,7 +37,9 @@ Deno.serve(async (req) => {
   );
   const { data: { user } } = await supabase.auth.getUser();
   const role = (user?.app_metadata as Record<string, unknown> | undefined)?.app_role;
-  if (role !== 'admin') return json({ error: 'forbidden' }, 403);
+  // staff = admin or editor — matches the dashboard's role model; topics are
+  // whitelisted below so exposure is bounded either way
+  if (role !== 'admin' && role !== 'editor') return json({ error: 'forbidden' }, 403);
 
   const body = await req.json().catch(() => ({}));
   const key = Deno.env.get('ONESIGNAL_REST_API_KEY');
@@ -47,13 +49,17 @@ Deno.serve(async (req) => {
   // duplicate-schedule guard on new sends.
   async function fetchPending(): Promise<Record<string, unknown>[] | null> {
     const all: Record<string, unknown>[] = [];
-    for (let offset = 0; offset < 200; offset += 50) {
+    // The list is newest-created-first and includes already-sent items, so
+    // long-ago-created scheduled sends sit deep in it — page far enough that
+    // a season of stadium days plus months of history still fits.
+    for (let offset = 0; offset < 1000; offset += 50) {
       const resp = await fetch(
         `https://api.onesignal.com/notifications?app_id=${ONESIGNAL_APP_ID}&limit=50&offset=${offset}&kind=1`,
         { headers: { Authorization: `Key ${key}` } },
       );
-      const result = await resp.json();
       if (!resp.ok) return null;
+      const result = await resp.json().catch(() => null);
+      if (result === null) return null;
       const batch = (result.notifications ?? []) as Record<string, unknown>[];
       all.push(...batch);
       if (batch.length < 50) break;
@@ -89,14 +95,35 @@ Deno.serve(async (req) => {
       `https://api.onesignal.com/notifications/${body.id}?app_id=${ONESIGNAL_APP_ID}`,
       { method: 'DELETE', headers: { Authorization: `Key ${key}` } },
     );
-    const result = await resp.json();
+    const result = await resp.json().catch(() => ({}));
     return json({ ok: resp.ok, ...result }, resp.ok ? 200 : 502);
   }
 
   const { title, message, topic, url, route, send_after } = body;
   if (typeof title !== 'string' || !title.trim()) return json({ error: 'title required' }, 400);
   if (typeof message !== 'string' || !message.trim()) return json({ error: 'message required' }, 400);
+  if (title.length > 65) return json({ error: 'title too long (max 65 characters)' }, 400);
+  if (message.length > 178) return json({ error: 'message too long (max 178 characters)' }, 400);
   if (typeof topic !== 'string' || !(topic in TOPIC_DEFAULT_ON)) return json({ error: 'invalid topic' }, 400);
+
+  // an event deep link must point at a live, published event — otherwise the
+  // whole congregation taps into "Event not found"
+  if (typeof route === 'string' && route.startsWith('/event/')) {
+    const eventId = route.slice('/event/'.length);
+    const { data: ev } = await supabase
+      .from('events')
+      .select('id')
+      .eq('id', eventId)
+      .eq('is_published', true)
+      .maybeSingle();
+    if (!ev) {
+      return json({
+        ok: false,
+        error: 'event_not_found',
+        message: 'That event is missing or unpublished — the notification would deep-link to a dead page. Publish the event (or pick another) and try again.',
+      }, 400);
+    }
+  }
   // optional scheduling: ISO instant, must be in the future (max ~1 year out)
   let sendAfter: string | null = null;
   if (send_after != null) {

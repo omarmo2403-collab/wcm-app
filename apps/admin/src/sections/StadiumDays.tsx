@@ -131,8 +131,10 @@ async function extractText(file: File): Promise<string> {
     // paragraph boundaries become spaces; text runs join with nothing
     return xml.replace(/<\/w:p>/g, ' ').replace(/<[^>]+>/g, '');
   }
-  // Excel / CSV: every cell becomes a text line (Date cells formatted back)
-  const wb = XLSX.read(buf, { cellDates: true });
+  // Excel / CSV: every cell becomes a text line (Date cells formatted back).
+  // CSVs stay TEXT — SheetJS's fuzzy pass reads "07/08/2026" US-style.
+  const isCsv = name.endsWith('.csv');
+  const wb = XLSX.read(buf, isCsv ? { raw: true } : { cellDates: true });
   let text = '';
   for (const sheetName of wb.SheetNames) {
     const matrix = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]!, { header: 1, defval: '' }) as unknown[][];
@@ -217,31 +219,25 @@ export function StadiumDays() {
     setSaving(true);
     setStatus('Saving…');
     try {
-      // replace the covered month(s): delete then insert
-      for (const ym of months) {
+      // atomic replace of the covered month(s) — one transaction server-side,
+      // so a failure can never leave a month emptied but not refilled
+      const windows = months.map((ym) => {
         const [y, m] = ym.split('-').map(Number);
-        const from = new Date(Date.UTC(y!, m! - 1, 1)).toISOString();
-        const to = new Date(Date.UTC(y!, m!, 1)).toISOString();
-        const { error } = await supabase
-          .from('events')
-          .delete()
-          .eq('category', 'stadium')
-          .gte('starts_at', from)
-          .lt('starts_at', to);
-        if (error) throw new Error(error.message);
-      }
-      const { error: insertError } = await supabase.from('events').insert(
-        days.map((d) => ({
+        return {
+          from: new Date(Date.UTC(y!, m! - 1, 1)).toISOString(),
+          to: new Date(Date.UTC(y!, m!, 1)).toISOString(),
+        };
+      });
+      const { error } = await supabase.rpc('replace_stadium_days', {
+        windows,
+        days: days.map((d) => ({
           title: 'Wembley Stadium Event Day',
           description:
             'Significant parking restrictions and increased traffic around the Masjid today. Please plan your journey and use public transport where possible.',
           starts_at: ukToIso(d.date, '12:00'),
-          all_day: true,
-          category: 'stadium',
-          is_published: true,
         })),
-      );
-      if (insertError) throw new Error(insertError.message);
+      });
+      if (error) throw new Error(error.message);
 
       let scheduled = 0;
       let skipped = 0;

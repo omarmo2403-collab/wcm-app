@@ -9,7 +9,7 @@ import { EnableAlertsCard } from '@/features/notifications/enable-alerts-card';
 import { PrayerWidget } from '@/features/prayer-times/prayer-widget';
 import { colors } from '@/theme/tokens';
 
-/** Home mirrors the prototype: widget → quick actions → notice → banners → gallery */
+/** Home mirrors the prototype: widget → quick actions → notice → banners */
 export default function HomeScreen() {
   return (
     <ScrollView style={styles.screen}>

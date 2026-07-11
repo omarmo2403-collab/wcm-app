@@ -53,22 +53,43 @@ export async function requestPermission(): Promise<boolean> {
  * reschedule from the freshly-fetched timetable. Idempotent, whole-day
  * granularity, capped under iOS's 64-pending limit by buildNotificationSchedule.
  * Called on app start, foreground, and by the daily background task.
+ *
+ * Runs are SERIALIZED through a module-level chain: a foreground event and a
+ * fresh-data effect can both call this at once, and interleaved cancel/
+ * schedule loops would let a stale run overwrite corrected iqamah alerts
+ * (identical identifiers — last write wins).
  */
-export async function syncPrayerNotifications(
+let syncChain: Promise<unknown> = Promise.resolve();
+
+export function syncPrayerNotifications(
+  days: DayTimetable[],
+  jumuah: JumuahTime[],
+  prefs: NotificationPrefs,
+): Promise<number> {
+  const run = syncChain.then(() => doSync(days, jumuah, prefs), () => doSync(days, jumuah, prefs));
+  syncChain = run.catch(() => undefined);
+  return run;
+}
+
+async function doSync(
   days: DayTimetable[],
   jumuah: JumuahTime[],
   prefs: NotificationPrefs,
 ): Promise<number> {
   if (!notificationsSupported()) return 0;
-  const { status } = await Notifications.getPermissionsAsync();
-  if (status !== 'granted') return 0;
 
+  // Cancelling needs no permission and MUST happen even when permission is
+  // missing: with alerts disabled (or permission revoked) the old alarms
+  // would otherwise stay armed in the OS and keep firing.
   const existing = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
     existing
       .filter((n) => n.identifier.startsWith(ID_PREFIX))
       .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
   );
+
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') return 0;
 
   const schedule = buildNotificationSchedule(days, jumuah, prefs, new Date());
   for (const alert of schedule) {
@@ -86,7 +107,39 @@ export async function syncPrayerNotifications(
       },
     });
   }
+
+  // Runway warning: if the timetable ends within 3 days (next month not
+  // uploaded yet), tell the user before alerts silently stop.
+  const last = schedule[schedule.length - 1];
+  if (last && last.fireAt.getTime() - Date.now() < 3 * 24 * 3600 * 1000) {
+    await Notifications.scheduleNotificationAsync({
+      identifier: `${ID_PREFIX}runway-warning`,
+      content: {
+        title: 'Prayer alerts pausing soon',
+        body: 'The published timetable is ending. Open the app to refresh your prayer alerts.',
+        sound: 'default',
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: new Date(last.fireAt.getTime() + 30 * 60 * 1000),
+        channelId: Platform.OS === 'android' ? CHANNEL_ID : undefined,
+      },
+    });
+  }
   return schedule.length;
+}
+
+/**
+ * Lets non-data-holding screens (permission cards, settings) ask the mounted
+ * NotificationSync to re-run a full sync — e.g. right after the user grants
+ * notification permission, when every earlier sync no-opped.
+ */
+let resyncListener: (() => void) | null = null;
+export function onResyncRequest(fn: (() => void) | null): void {
+  resyncListener = fn;
+}
+export function requestResync(): void {
+  resyncListener?.();
 }
 
 export interface ScheduledSummary {

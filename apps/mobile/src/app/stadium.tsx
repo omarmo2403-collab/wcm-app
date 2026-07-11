@@ -54,10 +54,11 @@ export default function StadiumScreen() {
                 return (
                   <View key={e.id} style={styles.dateRow}>
                     <Text style={styles.dateDay}>
-                      {d.toLocaleDateString('en-GB', { weekday: 'short' })}
+                      {d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', weekday: 'short' })}
                     </Text>
                     <Text style={styles.dateFull}>
-                      {ordinal(d.getDate())} {d.toLocaleDateString('en-GB', { month: 'long' })}
+                      {ordinal(Number(d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric' })))}{' '}
+                      {d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', month: 'long' })}
                     </Text>
                   </View>
                 );

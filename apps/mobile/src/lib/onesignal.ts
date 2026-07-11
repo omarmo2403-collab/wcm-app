@@ -10,6 +10,11 @@ export const ONESIGNAL_APP_ID = '36591c9d-0098-4d2b-bad5-d240719d9285';
  * the topic-preferences UI arrives with M3 — defaults subscribe everyone
  * to prayer-time changes and announcements.
  */
+/** Screens a push is allowed to open — anything else falls back to Home. */
+const ROUTE_ALLOWLIST = [/^\/event\/[\w-]+$/, /^\/stadium$/, /^\/prayer-times$/, /^\/news$/, /^\/donate$/];
+
+let initializedAtMs: number | null = null;
+
 export function initOneSignal(): void {
   if (Platform.OS === 'web') return;
   try {
@@ -17,15 +22,16 @@ export function initOneSignal(): void {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { OneSignal } = require('react-native-onesignal') as typeof import('react-native-onesignal');
     OneSignal.initialize(ONESIGNAL_APP_ID);
-    // Android 13+ shows the system permission dialog; earlier versions and
-    // already-granted devices resolve silently. Safe here: it queues on the
-    // native module thread AFTER initialize.
-    OneSignal.Notifications.requestPermission(false);
+    initializedAtMs = Date.now();
+    // NO permission request here: the OS dialog must only appear on an
+    // affirmative tap (enable-alerts card / settings). Prompting on first
+    // launch burns Android 13's one-shot dialog with zero context — and once
+    // denied there, the app can never re-prompt.
     // Deep link: admin pushes may carry data.route ('/event/<id>', '/stadium'
     // …) — navigate there when the user taps the notification.
     OneSignal.Notifications.addEventListener('click', (event: import('react-native-onesignal').NotificationClickEvent) => {
       const route = (event.notification.additionalData as { route?: unknown } | undefined)?.route;
-      if (typeof route === 'string' && route.startsWith('/')) {
+      if (typeof route === 'string' && ROUTE_ALLOWLIST.some((re) => re.test(route))) {
         // small delay so navigation lands after the root layout mounts on cold start
         setTimeout(() => router.push(route as never), 400);
       }
@@ -75,7 +81,12 @@ export function syncTopicTags(
 ): void {
   if (Platform.OS === 'web') return;
   if (pendingSync) clearTimeout(pendingSync);
-  if (opts.immediate) {
+  // Even "immediate" writes must stay outside the native init window — a user
+  // deep-linked into settings could toggle within seconds of a cold start,
+  // and an early User access is an uncatchable native crash.
+  const sinceInit = initializedAtMs === null ? 0 : Date.now() - initializedAtMs;
+  const delay = opts.immediate ? Math.max(0, TAG_SYNC_DELAY_MS - sinceInit) : TAG_SYNC_DELAY_MS;
+  if (delay === 0) {
     pendingSync = null;
     writeTags(topics);
     return;
@@ -83,5 +94,5 @@ export function syncTopicTags(
   pendingSync = setTimeout(() => {
     pendingSync = null;
     writeTags(topics);
-  }, TAG_SYNC_DELAY_MS);
+  }, delay);
 }

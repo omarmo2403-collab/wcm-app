@@ -7,14 +7,15 @@ import { useState } from 'react';
 import { Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 import { CardTitle, SectionCard } from '@/components/ui/section-card';
-import { useEvents } from '@/features/content/queries';
+import { useEvent } from '@/features/content/queries';
 import { mediaUrl } from '@/features/home/queries';
 import { colors, radii, spacing } from '@/theme/tokens';
+import { ActivityIndicator } from 'react-native';
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const events = useEvents();
-  const event = events.data?.find((e) => e.id === id);
+  const query = useEvent(id);
+  const event = query.data;
   const [calStatus, setCalStatus] = useState('');
 
   if (!event) {
@@ -22,7 +23,13 @@ export default function EventDetailScreen() {
       <>
         <Stack.Screen options={{ title: 'Event' }} />
         <View style={styles.center}>
-          <Text style={styles.muted}>Event not found — it may have been removed.</Text>
+          {query.isPending ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : query.isError ? (
+            <Text style={styles.muted}>Couldn&apos;t load this event — check your connection.</Text>
+          ) : (
+            <Text style={styles.muted}>Event not found — it may have been removed.</Text>
+          )}
         </View>
       </>
     );

@@ -88,6 +88,7 @@ export function PushComposer() {
     supabase
       .from('events')
       .select('id,title,starts_at,all_day')
+      .eq('is_published', true) // drafts would deep-link to a page the app can't load
       .gte('starts_at', new Date().toISOString())
       .order('starts_at')
       .limit(30)
