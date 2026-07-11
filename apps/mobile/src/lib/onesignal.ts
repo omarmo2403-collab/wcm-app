@@ -22,19 +22,33 @@ export function initOneSignal(): void {
 }
 
 /** Mirror the user's topic preferences onto OneSignal tags — the admin push
- *  composer targets `tag topic = 'true'`, so removing a tag opts the user out. */
+ *  composer targets `tag topic = 'true'`, so removing a tag opts the user out.
+ *
+ *  CRASH GUARD: OneSignal's User accessor throws a NATIVE-thread
+ *  IllegalStateException ("Must call 'initWithContext' before use") if touched
+ *  before initialization settles — uncatchable from JS and it kills the app
+ *  (seen on MIUI, 11 Jul 2026). Tag work is therefore delayed well past the
+ *  init window and never runs during startup.
+ */
+const TAG_SYNC_DELAY_MS = 12_000;
+let pendingSync: ReturnType<typeof setTimeout> | null = null;
+
 export function syncTopicTags(topics: Record<string, boolean>): void {
   if (Platform.OS === 'web') return;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { OneSignal } = require('react-native-onesignal') as typeof import('react-native-onesignal');
-    const on = Object.fromEntries(
-      Object.entries(topics).filter(([, v]) => v).map(([k]) => [k, 'true']),
-    );
-    const off = Object.keys(topics).filter((k) => !topics[k]);
-    if (Object.keys(on).length > 0) OneSignal.User.addTags(on);
-    if (off.length > 0) OneSignal.User.removeTags(off);
-  } catch {
-    /* remote push unavailable */
-  }
+  if (pendingSync) clearTimeout(pendingSync);
+  pendingSync = setTimeout(() => {
+    pendingSync = null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { OneSignal } = require('react-native-onesignal') as typeof import('react-native-onesignal');
+      const on = Object.fromEntries(
+        Object.entries(topics).filter(([, v]) => v).map(([k]) => [k, 'true']),
+      );
+      const off = Object.keys(topics).filter((k) => !topics[k]);
+      if (Object.keys(on).length > 0) OneSignal.User.addTags(on);
+      if (off.length > 0) OneSignal.User.removeTags(off);
+    } catch {
+      /* remote push unavailable */
+    }
+  }, TAG_SYNC_DELAY_MS);
 }
