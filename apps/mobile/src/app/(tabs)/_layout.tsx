@@ -39,7 +39,7 @@ const headerStyles = StyleSheet.create({
   wrap: { flexDirection: 'row', alignItems: 'center', gap: 11, height: 56 },
   icon: { width: 87, height: 46 },
   // wordmark midline dropped to the WCM-block row of the skyline
-  text: { width: 216, height: 16.5, transform: [{ translateY: 4 }] },
+  text: { width: 216, height: 16.5, transform: [{ translateY: 7 }] },
 });
 
 export default function TabLayout() {

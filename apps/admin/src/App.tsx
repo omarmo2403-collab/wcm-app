@@ -5,10 +5,11 @@ import { supabase } from './lib/supabase';
 import { Timetable } from './sections/Timetable';
 import { CrudSection, CRUD_SECTIONS } from './sections/CrudSection';
 import { PushComposer } from './sections/PushComposer';
+import { SchedulePush } from './sections/SchedulePush';
 import { ConfigSection } from './sections/Config';
 import { AuditLog } from './sections/Audit';
 
-type SectionKey = 'timetable' | keyof typeof CRUD_SECTIONS | 'push' | 'config' | 'audit';
+type SectionKey = 'timetable' | keyof typeof CRUD_SECTIONS | 'push' | 'schedule' | 'config' | 'audit';
 
 const NAV: { key: SectionKey; label: string }[] = [
   { key: 'timetable', label: 'Prayer Times' },
@@ -21,6 +22,7 @@ const NAV: { key: SectionKey; label: string }[] = [
   { key: 'services', label: 'Services' },
   { key: 'jumuah', label: "Jumu'ah Times" },
   { key: 'push', label: 'Send Notification' },
+  { key: 'schedule', label: 'Scheduled Notifications' },
   { key: 'config', label: 'App Config' },
   { key: 'audit', label: 'Audit Log' },
 ];
@@ -136,6 +138,7 @@ export default function App() {
           <CrudSection key={section} config={CRUD_SECTIONS[section as keyof typeof CRUD_SECTIONS]} />
         )}
         {section === 'push' && <PushComposer />}
+        {section === 'schedule' && <SchedulePush />}
         {section === 'config' && <ConfigSection />}
         {section === 'audit' && <AuditLog />}
       </main>
