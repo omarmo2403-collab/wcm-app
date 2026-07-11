@@ -30,11 +30,20 @@ export default function MoreScreen() {
               i < ITEMS.length - 1 && styles.itemBorder,
               pressed && styles.pressed,
             ]}
-            onPress={() =>
-              item.slug === 'notifications'
-                ? router.push('/notification-settings')
-                : router.push({ pathname: '/coming-soon', params: { title: item.label } })
-            }
+            onPress={() => {
+              const routes: Record<string, string> = {
+                notifications: '/notification-settings',
+                about: '/about',
+                news: '/news',
+                qibla: '/qibla',
+                contact: '/contact',
+                services: '/services',
+                stadium: '/stadium',
+              };
+              const route = routes[item.slug];
+              if (route) router.push(route as never);
+              else router.push({ pathname: '/coming-soon', params: { title: item.label } });
+            }}
           >
             <Ionicons name={item.icon} size={20} color={colors.primary} />
             <Text style={styles.label}>{item.label}</Text>
