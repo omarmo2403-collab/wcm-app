@@ -20,12 +20,11 @@ import { useUi } from '@/stores/ui';
 
 /* ---------- Quick actions (prototype .quick-actions) ---------- */
 
-// prototype colours; 4th slot is Timetable (Ask-Scholar removed per Omar)
+// three actions — Timetable removed (the widget's monthly button sits just above)
 const ACTIONS = [
   { label: 'Donate', icon: 'hand-heart' as const, color: '#914BA1', route: '/donate' },
   { label: 'Events', icon: 'calendar-month' as const, color: '#159778', route: '/events' },
   { label: 'Qibla', icon: 'compass' as const, color: '#2980B9', route: '/qibla' },
-  { label: 'Timetable', icon: 'clock-outline' as const, color: '#455A64', route: '/prayer-times' },
 ];
 
 export function QuickActions() {
@@ -225,7 +224,7 @@ const styles = StyleSheet.create({
 
   actionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-evenly',
     paddingHorizontal: spacing.lg,
     marginTop: spacing.lg,
   },
