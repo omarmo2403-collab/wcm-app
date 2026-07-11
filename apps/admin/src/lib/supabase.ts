@@ -19,5 +19,7 @@ export async function callSendPush(
     body: JSON.stringify(payload),
   });
   const out = await resp.json().catch(() => ({}));
-  return { ok: resp.ok && out.ok !== false, errors: out.errors ?? (resp.ok ? null : out) };
+  // spread first: the function's payload (scheduled list, recipients, …) must
+  // survive, but ok/errors are normalised here and win over the raw fields
+  return { ...out, ok: resp.ok && out.ok !== false, errors: out.errors ?? (resp.ok ? null : out) };
 }

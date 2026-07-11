@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { callSendPush, supabase } from '../lib/supabase';
+import { destinationLabel, TOPIC_LABELS, type ScheduledItem } from '../lib/push';
 
 // Matches the app's three notification switches exactly — congregants who
 // turn a switch off are excluded from that topic's sends automatically
@@ -10,13 +11,6 @@ const TOPICS = [
   { value: 'events', label: 'Events' },
   { value: 'stadium', label: 'Stadium event days' },
 ];
-
-interface ScheduledItem {
-  id: string;
-  title: string;
-  message: string;
-  send_after: number; // unix seconds
-}
 
 interface EventOption {
   id: string;
@@ -258,8 +252,19 @@ export function PushComposer() {
                 }}
               >
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{s.title}</div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>
+                    {s.title}
+                    <span style={{
+                      marginLeft: 8, fontWeight: 600, fontSize: 11, padding: '1px 8px',
+                      borderRadius: 999, background: 'rgba(21,151,120,0.1)', color: 'var(--green, #159778)',
+                    }}>
+                      {(s.topic && TOPIC_LABELS[s.topic]) ?? s.topic ?? 'unknown topic'}
+                    </span>
+                  </div>
                   <div style={{ fontSize: 12, color: 'var(--text-light)' }}>{s.message}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-light)' }}>
+                    Tap: {destinationLabel(s, events)}
+                  </div>
                   <div style={{ fontSize: 12, color: 'var(--green, #159778)', fontWeight: 600 }}>
                     {formatUk(s.send_after)} (UK)
                   </div>

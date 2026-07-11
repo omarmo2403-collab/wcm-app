@@ -42,24 +42,38 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const key = Deno.env.get('ONESIGNAL_REST_API_KEY');
 
-  // action: 'list_scheduled' — pending (scheduled, not yet sent) notifications
+  // action: 'list_scheduled' — ALL pending (scheduled, not yet sent) notifications,
+  // with audience topic and tap destination so staff can spot wrong ones
   if (body.action === 'list_scheduled') {
-    const resp = await fetch(
-      `https://api.onesignal.com/notifications?app_id=${ONESIGNAL_APP_ID}&limit=50&kind=1`,
-      { headers: { Authorization: `Key ${key}` } },
-    );
-    const result = await resp.json();
+    const all: Record<string, unknown>[] = [];
+    for (let offset = 0; offset < 200; offset += 50) {
+      const resp = await fetch(
+        `https://api.onesignal.com/notifications?app_id=${ONESIGNAL_APP_ID}&limit=50&offset=${offset}&kind=1`,
+        { headers: { Authorization: `Key ${key}` } },
+      );
+      const result = await resp.json();
+      if (!resp.ok) return json({ ok: false, errors: result.errors ?? result }, 502);
+      const batch = (result.notifications ?? []) as Record<string, unknown>[];
+      all.push(...batch);
+      if (batch.length < 50) break;
+    }
     const now = Date.now() / 1000;
-    const scheduled = (result.notifications ?? [])
-      .filter((n: { send_after?: number; completed_at?: number | null; canceled?: boolean }) =>
-        !n.canceled && !n.completed_at && (n.send_after ?? 0) > now)
-      .map((n: Record<string, unknown>) => ({
-        id: n.id,
-        title: (n.headings as Record<string, string>)?.en ?? '',
-        message: (n.contents as Record<string, string>)?.en ?? '',
-        send_after: n.send_after,
-      }));
-    return json({ ok: resp.ok, scheduled }, resp.ok ? 200 : 502);
+    const scheduled = all
+      .filter((n) =>
+        !n.canceled && !n.completed_at && ((n.send_after as number | undefined) ?? 0) > now)
+      .map((n) => {
+        const filters = (n.filters ?? []) as { field?: string; key?: string }[];
+        return {
+          id: n.id,
+          title: (n.headings as Record<string, string>)?.en ?? '',
+          message: (n.contents as Record<string, string>)?.en ?? '',
+          send_after: n.send_after,
+          topic: filters.find((f) => f.field === 'tag')?.key ?? null,
+          url: (n.url as string | undefined) ?? null,
+          route: ((n.data as Record<string, unknown>)?.route as string | undefined) ?? null,
+        };
+      });
+    return json({ ok: true, scheduled });
   }
 
   // action: 'cancel' — cancel a scheduled notification by id

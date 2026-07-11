@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 
 import { callSendPush, supabase } from '../lib/supabase';
+import { destinationLabel, TOPIC_LABELS, type ScheduledItem } from '../lib/push';
 
 /**
  * Bulk-schedule notifications from a filled-in template (Excel/CSV/Word
@@ -21,13 +22,6 @@ interface ParsedRow {
   link?: string; // web URL — opens in browser
   route?: string; // in-app screen path (e.g. /event/<id>) — takes precedence
   error?: string;
-}
-
-interface ScheduledItem {
-  id: string;
-  title: string;
-  message: string;
-  send_after: number;
 }
 
 interface EventOption {
@@ -348,22 +342,33 @@ export function SchedulePush() {
       </div>
 
       <div className="card" style={{ maxWidth: 720 }}>
-        <h3>Waiting to send</h3>
+        <h3>Waiting to send ({scheduled.length})</h3>
+        <p className="note">
+          Every scheduled notification, whichever section created it. Check the audience and where
+          a tap takes people — cancel anything that looks wrong.
+        </p>
         {scheduled.length === 0 ? (
           <p className="note">Nothing scheduled yet.</p>
         ) : (
-          scheduled
-            .sort((a, b) => a.send_after - b.send_after)
-            .map((s) => (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{s.title}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-light)' }}>{s.message}</div>
-                  <div style={{ fontSize: 12, color: '#159778', fontWeight: 600 }}>{formatUk(s.send_after)} (UK)</div>
-                </div>
-                <button className="btn secondary" onClick={() => cancel(s)}>Cancel</button>
-              </div>
-            ))
+          <table className="grid" style={{ marginTop: 8 }}>
+            <thead>
+              <tr><th>When (UK)</th><th>Audience</th><th>Title</th><th>Message</th><th>Tap opens</th><th></th></tr>
+            </thead>
+            <tbody>
+              {scheduled
+                .sort((a, b) => a.send_after - b.send_after)
+                .map((s) => (
+                  <tr key={s.id}>
+                    <td style={{ whiteSpace: 'nowrap' }}>{formatUk(s.send_after)}</td>
+                    <td>{(s.topic && TOPIC_LABELS[s.topic]) ?? s.topic ?? '?'}</td>
+                    <td>{s.title.slice(0, 40)}</td>
+                    <td>{s.message.slice(0, 60)}</td>
+                    <td>{destinationLabel(s, events).replace(/^opens /, '')}</td>
+                    <td><button className="btn secondary" onClick={() => cancel(s)}>Cancel</button></td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
         )}
       </div>
     </>
