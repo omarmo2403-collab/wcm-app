@@ -67,16 +67,25 @@ export function NoticeStrip() {
     }
   };
 
-  // amber alert strip — deliberately prominent (Omar, 12 Jul 2026)
+  // amber gradient alert banner — deliberately prominent (Omar, 12 Jul 2026)
   return (
     <Pressable style={({ pressed }) => [styles.notice, pressed && styles.pressed]} onPress={open}>
+      <LinearGradient
+        colors={['#F9A825', '#F57C00']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       <View style={styles.noticeIcon}>
-        <MaterialCommunityIcons name="car" size={17} color="#fff" />
+        <MaterialCommunityIcons name="car" size={19} color="#E65100" />
       </View>
-      <Text style={styles.noticeText} numberOfLines={2}>
-        {notice.message}
-      </Text>
-      <Ionicons name="chevron-forward" size={16} color="#B7791F" />
+      <View style={styles.noticeBody}>
+        <Text style={styles.noticeLabel}>NOTICE</Text>
+        <Text style={styles.noticeText} numberOfLines={2}>
+          {notice.message}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color="#fff" />
     </Pressable>
   );
 }
@@ -232,35 +241,39 @@ const styles = StyleSheet.create({
   },
   actionLabel: { fontSize: 11, fontWeight: '500', color: colors.textSecondary },
 
-  // prominent amber alert strip: solid icon badge, bold text, strong border
+  // amber gradient alert banner: white icon chip, NOTICE label, white text
   notice: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#FFF3CD',
-    borderColor: '#F9A825',
-    borderWidth: 1,
-    borderLeftWidth: 5,
-    borderRadius: radii.input,
+    borderRadius: radii.card,
+    overflow: 'hidden',
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    elevation: 2,
-    shadowColor: '#B7791F',
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+    shadowColor: '#E65100',
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
   },
   noticeIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: '#F9A825',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  noticeText: { flex: 1, fontSize: 13.5, fontWeight: '700', color: '#7A5A00' },
+  noticeBody: { flex: 1 },
+  noticeLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  noticeText: { fontSize: 13.5, fontWeight: '700', color: '#fff', marginTop: 1, lineHeight: 18 },
 
   // prototype .banner-img: min-height 160, content bottom-aligned, CTA pill
   banner: {
