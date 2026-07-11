@@ -30,7 +30,11 @@ function EventCard({ event }: { event: WcmEvent }) {
       </View>
       <View style={styles.eventInfo}>
         <Text style={styles.eventTitle}>{event.title}</Text>
-        {event.description ? <Text style={styles.eventDesc}>{event.description}</Text> : null}
+        {event.description ? (
+          <Text style={styles.eventDesc} numberOfLines={3}>
+            {event.description}
+          </Text>
+        ) : null}
         <View style={styles.eventTimeRow}>
           <Ionicons name="time-outline" size={13} color={colors.primary} />
           <Text style={styles.eventTime}>
