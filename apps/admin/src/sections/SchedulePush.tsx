@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 
-import { callSendPush } from '../lib/supabase';
+import { callSendPush, supabase } from '../lib/supabase';
 
 /**
  * Bulk-schedule notifications from a filled-in template (Excel/CSV/Word
@@ -18,7 +18,8 @@ interface ParsedRow {
   topic: string;
   title: string;
   message: string;
-  link?: string;
+  link?: string; // web URL — opens in browser
+  route?: string; // in-app screen path (e.g. /event/<id>) — takes precedence
   error?: string;
 }
 
@@ -28,6 +29,20 @@ interface ScheduledItem {
   message: string;
   send_after: number;
 }
+
+interface EventOption {
+  id: string;
+  title: string;
+  starts_at: string;
+}
+
+// Fixed in-app screens a notification can open (event pages added dynamically)
+const APP_SCREENS = [
+  { route: '/stadium', label: 'Stadium event days screen' },
+  { route: '/prayer-times', label: 'Prayer times screen' },
+  { route: '/donate', label: 'Donate screen' },
+  { route: '/news', label: 'News screen' },
+];
 
 /** UK wall time -> UTC ISO (handles BST/GMT) */
 function ukToIso(date: string, time: string): string {
@@ -87,13 +102,16 @@ function rowsFromMatrix(matrix: unknown[][]): ParsedRow[] {
     // skip header / example / empty rows
     if (!dateS || /^date$/i.test(dateS) || String(title ?? '').startsWith('EXAMPLE')) continue;
     if (!String(date ?? '').trim() && !String(title ?? '').trim()) continue;
+    const linkS = String(link ?? '').trim();
     const row: ParsedRow = {
       date: dateS,
       time: cellTime(time),
       topic: String(topic ?? '').trim().toLowerCase(),
       title: String(title ?? '').trim(),
       message: String(message ?? '').trim(),
-      link: String(link ?? '').trim() || undefined,
+      // leading "/" = in-app screen path, anything else = web URL
+      link: linkS && !linkS.startsWith('/') ? linkS : undefined,
+      route: linkS.startsWith('/') ? linkS : undefined,
     };
     row.error = validateRow(row);
     rows.push(row);
@@ -131,7 +149,7 @@ function downloadTemplate() {
     ['2. Date: YYYY-MM-DD (or DD/MM/YYYY). Time: 24-hour UK time, e.g. 09:00 or 18:30.'],
     ['3. Topic must be exactly one of: prayer_times, events, stadium.'],
     ['4. Title max 65 characters; Message max 178 characters (it is a phone notification).'],
-    ['5. Link is optional: a web address (https://…) opens in the browser; an app screen path opens inside the app — use /stadium for the stadium screen or /event/<id> for an event page.'],
+    ['5. Link is optional: a web address (https://…) opens in the browser when tapped. To open an event page or app screen instead, leave it blank — you pick that per row in the admin panel after uploading.'],
     ['6. Save the file and upload it in the admin Scheduled Notifications section.'],
   ]);
   notes['!cols'] = [{ wch: 110 }];
@@ -145,6 +163,7 @@ export function SchedulePush() {
   const [status, setStatus] = useState('');
   const [sending, setSending] = useState(false);
   const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
+  const [events, setEvents] = useState<EventOption[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refreshScheduled = useCallback(async () => {
@@ -152,7 +171,21 @@ export function SchedulePush() {
     if (res.ok) setScheduled((res.scheduled as ScheduledItem[]) ?? []);
   }, []);
 
-  useEffect(() => { refreshScheduled(); }, [refreshScheduled]);
+  useEffect(() => {
+    refreshScheduled();
+    // upcoming events for the per-row "opens in app" picker
+    supabase
+      .from('events')
+      .select('id,title,starts_at')
+      .gte('starts_at', new Date().toISOString())
+      .order('starts_at')
+      .limit(30)
+      .then(({ data }) => setEvents((data as EventOption[]) ?? []));
+  }, [refreshScheduled]);
+
+  const setRowRoute = (index: number, route: string) => {
+    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, route: route || undefined } : r)));
+  };
 
   const handleFile = async (file: File) => {
     setStatus(`Reading ${file.name}…`);
@@ -193,8 +226,8 @@ export function SchedulePush() {
         message: r.message,
         topic: r.topic,
         send_after: ukToIso(r.date, r.time),
-        // leading "/" = in-app screen (e.g. /event/<id>, /stadium); else web URL
-        ...(r.link ? (r.link.startsWith('/') ? { route: r.link } : { url: r.link }) : {}),
+        // in-app screen takes precedence over a web URL
+        ...(r.route ? { route: r.route } : r.link ? { url: r.link } : {}),
       });
       if (res.ok) ok++;
       else failures.push(`${r.date} ${r.time} "${r.title}": ${JSON.stringify(res.errors)}`);
@@ -256,7 +289,7 @@ export function SchedulePush() {
           <>
             <table className="grid" style={{ marginTop: 12 }}>
               <thead>
-                <tr><th>When (UK)</th><th>Topic</th><th>Title</th><th>Message</th><th>Status</th></tr>
+                <tr><th>When (UK)</th><th>Topic</th><th>Title</th><th>Message</th><th>Tap opens</th><th>Status</th></tr>
               </thead>
               <tbody>
                 {rows.map((r, i) => (
@@ -265,11 +298,46 @@ export function SchedulePush() {
                     <td>{r.topic}</td>
                     <td>{r.title.slice(0, 40)}</td>
                     <td>{r.message.slice(0, 60)}</td>
+                    <td>
+                      {r.error ? (
+                        '—'
+                      ) : (
+                        <select
+                          value={r.route ?? ''}
+                          onChange={(e) => setRowRoute(i, e.target.value)}
+                          style={{ fontSize: 12, maxWidth: 180 }}
+                        >
+                          <option value="">{r.link ? `web: ${r.link.slice(0, 30)}` : 'app only'}</option>
+                          {events.length > 0 && (
+                            <optgroup label="Event pages">
+                              {events.map((ev) => (
+                                <option key={ev.id} value={`/event/${ev.id}`}>
+                                  {ev.title.slice(0, 40)}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                          <optgroup label="App screens">
+                            {APP_SCREENS.map((s) => (
+                              <option key={s.route} value={s.route}>{s.label}</option>
+                            ))}
+                          </optgroup>
+                          {r.route && !APP_SCREENS.some((s) => s.route === r.route) && !events.some((ev) => `/event/${ev.id}` === r.route) && (
+                            <option value={r.route}>{r.route}</option>
+                          )}
+                        </select>
+                      )}
+                    </td>
                     <td>{r.error ? <span className="err">{r.error}</span> : <span className="ok">ready</span>}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            <p className="note" style={{ marginTop: 8 }}>
+              "Tap opens" — where the phone goes when the notification is tapped: an event page or
+              app screen (opens in the app), a web link from the file (opens in browser), or just
+              the app.
+            </p>
             <div style={{ marginTop: 12 }}>
               <button className="btn" onClick={scheduleAll} disabled={sending || validCount === 0}>
                 {sending ? 'Scheduling…' : `Schedule ${validCount} notification(s)`}

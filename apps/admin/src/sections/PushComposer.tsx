@@ -22,15 +22,25 @@ interface EventOption {
   id: string;
   title: string;
   starts_at: string;
+  all_day: boolean;
 }
 
-// Fixed in-app screens a notification can open (event links are added dynamically)
-const APP_SCREENS = [
-  { route: '/stadium', label: 'Stadium event days screen' },
-  { route: '/prayer-times', label: 'Prayer times screen' },
-  { route: '/donate', label: 'Donate screen' },
-  { route: '/news', label: 'News screen' },
-];
+function formatEventDate(ev: EventOption): string {
+  const d = new Date(ev.starts_at);
+  const date = d.toLocaleDateString('en-GB', {
+    timeZone: 'Europe/London',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  if (ev.all_day) return date;
+  const time = d.toLocaleTimeString('en-GB', {
+    timeZone: 'Europe/London',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  return `${date}, ${time}`;
+}
 
 /** "2026-07-25T09:00" (UK wall time) -> UTC ISO string */
 function ukWallTimeToIso(local: string): string {
@@ -60,7 +70,10 @@ function formatUk(unixSeconds: number): string {
 }
 
 export function PushComposer() {
+  const [kind, setKind] = useState<'general' | 'event'>('general');
   const [topic, setTopic] = useState('prayer_times');
+  const [eventId, setEventId] = useState('');
+  const [deepLink, setDeepLink] = useState(true);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [url, setUrl] = useState('');
@@ -77,28 +90,41 @@ export function PushComposer() {
 
   useEffect(() => {
     refreshScheduled();
-    // upcoming events for the deep-link picker
+    // upcoming events for the event-notification picker
     supabase
       .from('events')
-      .select('id,title,starts_at')
+      .select('id,title,starts_at,all_day')
       .gte('starts_at', new Date().toISOString())
       .order('starts_at')
       .limit(30)
       .then(({ data }) => setEvents((data as EventOption[]) ?? []));
   }, [refreshScheduled]);
 
+  const selectEvent = (id: string) => {
+    setEventId(id);
+    const ev = events.find((e) => e.id === id);
+    if (!ev) return;
+    // prefill — staff can edit both before sending
+    if (!title.trim()) setTitle(ev.title.slice(0, 65));
+    if (!message.trim()) setMessage(`${formatEventDate(ev)} — tap for details.`.slice(0, 178));
+  };
+
+  const effectiveTopic = kind === 'event' ? 'events' : topic;
+
   const send = async () => {
     const when = sendAt ? formatUk(Date.parse(ukWallTimeToIso(sendAt)) / 1000) : 'now';
-    if (!window.confirm(`Send this notification to everyone subscribed to "${topic}" — ${sendAt ? `scheduled for ${when} (UK time)` : 'immediately'}?`)) return;
+    if (!window.confirm(`Send this notification to everyone subscribed to "${effectiveTopic}" — ${sendAt ? `scheduled for ${when} (UK time)` : 'immediately'}?`)) return;
     setSending(true);
     setStatus('Sending…');
-    // Leading "/" = in-app screen (deep link); anything else = web URL
     const link = url.trim();
     const res = await callSendPush({
       title,
       message,
-      topic,
-      ...(link ? (link.startsWith('/') ? { route: link } : { url: link }) : {}),
+      topic: effectiveTopic,
+      // event notifications carry an in-app route; the app opens the event
+      // page when the notification is tapped (needs no web URL)
+      ...(kind === 'event' && deepLink && eventId ? { route: `/event/${eventId}` } : {}),
+      ...(kind === 'general' && link ? { url: link } : {}),
       ...(sendAt ? { send_after: ukWallTimeToIso(sendAt) } : {}),
     });
     setStatus(res.ok ? (sendAt ? `Scheduled for ${when} ✓` : 'Sent ✓') : `Failed: ${JSON.stringify(res.errors)}`);
@@ -108,6 +134,7 @@ export function PushComposer() {
       setMessage('');
       setUrl('');
       setSendAt('');
+      setEventId('');
       refreshScheduled();
     }
   };
@@ -119,48 +146,80 @@ export function PushComposer() {
     else window.alert(`Could not cancel: ${JSON.stringify(res.errors ?? res)}`);
   };
 
+  const canSend = title.trim() && message.trim() && (kind === 'general' || eventId);
+
   return (
     <>
       <h2>Send Notification</h2>
       <div className="card" style={{ maxWidth: 560 }}>
-        <label>Audience topic</label>
-        <select value={topic} onChange={(e) => setTopic(e.target.value)}>
-          {TOPICS.map((t) => (
-            <option key={t.value} value={t.value}>{t.label}</option>
-          ))}
-        </select>
+        <label>Notification type</label>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          <button
+            className={kind === 'general' ? 'btn' : 'btn secondary'}
+            onClick={() => setKind('general')}
+          >
+            General
+          </button>
+          <button
+            className={kind === 'event' ? 'btn' : 'btn secondary'}
+            onClick={() => setKind('event')}
+          >
+            Event
+          </button>
+        </div>
+
+        {kind === 'general' ? (
+          <>
+            <label>Audience topic</label>
+            <select value={topic} onChange={(e) => setTopic(e.target.value)}>
+              {TOPICS.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </>
+        ) : (
+          <>
+            <label>Event</label>
+            <select value={eventId} onChange={(e) => selectEvent(e.target.value)}>
+              <option value="">— select an event —</option>
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.title} ({formatEventDate(ev)})
+                </option>
+              ))}
+            </select>
+            {events.length === 0 && (
+              <p className="note" style={{ marginTop: 4 }}>
+                No upcoming events — add one in the Events section first.
+              </p>
+            )}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, marginTop: 8 }}>
+              <input
+                type="checkbox"
+                checked={deepLink}
+                onChange={(e) => setDeepLink(e.target.checked)}
+                style={{ width: 'auto', margin: 0 }}
+              />
+              Tapping the notification opens the event page in the app
+            </label>
+            <p className="note" style={{ marginTop: 4 }}>
+              Sent to everyone subscribed to Events notifications.
+            </p>
+          </>
+        )}
 
         <label>Title ({title.length}/65)</label>
-        <input value={title} maxLength={65} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Isha iqamah change" />
+        <input value={title} maxLength={65} onChange={(e) => setTitle(e.target.value)} placeholder={kind === 'event' ? 'Prefilled from the event — edit freely' : 'e.g. Isha iqamah change'} />
 
         <label>Message ({message.length}/178)</label>
         <textarea value={message} maxLength={178} onChange={(e) => setMessage(e.target.value)} placeholder="Keep it short — this is a phone notification." />
 
-        <label>Open in app when tapped (optional)</label>
-        <select value={url.startsWith('/') ? url : ''} onChange={(e) => setUrl(e.target.value)}>
-          <option value="">— nothing / web link below —</option>
-          {events.length > 0 && (
-            <optgroup label="Event pages">
-              {events.map((ev) => (
-                <option key={ev.id} value={`/event/${ev.id}`}>
-                  {ev.title} ({new Date(ev.starts_at).toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' })})
-                </option>
-              ))}
-            </optgroup>
-          )}
-          <optgroup label="App screens">
-            {APP_SCREENS.map((s) => (
-              <option key={s.route} value={s.route}>{s.label}</option>
-            ))}
-          </optgroup>
-        </select>
-
-        <label>…or a web link (optional — opens in browser)</label>
-        <input
-          value={url.startsWith('/') ? '' : url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://…"
-        />
+        {kind === 'general' && (
+          <>
+            <label>Web link (optional — opens in browser when tapped)</label>
+            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+          </>
+        )}
 
         <label>Schedule (optional — UK time; leave empty to send now)</label>
         <input
@@ -170,7 +229,7 @@ export function PushComposer() {
         />
 
         <div style={{ marginTop: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button className="btn" onClick={send} disabled={sending || !title.trim() || !message.trim()}>
+          <button className="btn" onClick={send} disabled={sending || !canSend}>
             {sendAt ? 'Schedule notification' : 'Send notification'}
           </button>
           {status && <span className={status.startsWith('Failed') ? 'err' : 'ok'}>{status}</span>}
@@ -205,7 +264,7 @@ export function PushComposer() {
                     {formatUk(s.send_after)} (UK)
                   </div>
                 </div>
-                <button className="btn-secondary" onClick={() => cancel(s)}>Cancel</button>
+                <button className="btn secondary" onClick={() => cancel(s)}>Cancel</button>
               </div>
             ))
         )}
@@ -217,6 +276,11 @@ export function PushComposer() {
           <div style={{ fontSize: 12, color: 'var(--text-light)' }}>Wembley Central Masjid · now</div>
           <div style={{ fontWeight: 700, fontSize: 14 }}>{title || 'Notification title'}</div>
           <div style={{ fontSize: 13 }}>{message || 'Notification message appears here.'}</div>
+          {kind === 'event' && deepLink && eventId && (
+            <div style={{ fontSize: 12, color: 'var(--green, #159778)', marginTop: 4 }}>
+              ↳ opens the event page in the app
+            </div>
+          )}
         </div>
       </div>
     </>
