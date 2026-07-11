@@ -19,6 +19,16 @@ export const palette = {
   border: '#E0E0E0',
 } as const;
 
+/** Prayer widget palette — prototype/style.css --tt-* variables (matches the masjid website widget) */
+export const widget = {
+  background: '#0C7058',
+  headerRow: '#159778',
+  cream: '#F8EDDB',
+  white: '#FFFFFF',
+  divider: 'rgba(255,255,255,0.6)',
+  buttonBackground: 'rgba(0,0,0,0.4)',
+} as const;
+
 export const colors = {
   primary: palette.green,
   primaryPressed: palette.greenDark,

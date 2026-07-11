@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { Tabs } from 'expo-router';
-import type { ColorValue } from 'react-native';
+import { StyleSheet, View, type ColorValue } from 'react-native';
 
 import { colors } from '@/theme/tokens';
 
@@ -11,6 +12,30 @@ function tabIcon(name: IconName) {
     <Ionicons name={name} color={color} size={size} />
   );
 }
+
+/** Prototype header: logo icon + logotype, centred (index.html .header-title) */
+function BrandHeaderTitle() {
+  return (
+    <View style={headerStyles.wrap}>
+      <Image
+        source={require('../../../assets/brand/logo-icon.svg')}
+        style={headerStyles.icon}
+        contentFit="contain"
+      />
+      <Image
+        source={require('../../../assets/brand/logo-text.svg')}
+        style={headerStyles.text}
+        contentFit="contain"
+      />
+    </View>
+  );
+}
+
+const headerStyles = StyleSheet.create({
+  wrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  icon: { width: 40, height: 40 },
+  text: { width: 170, height: 13 },
+});
 
 export default function TabLayout() {
   return (
@@ -28,6 +53,8 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Wembley Central Masjid',
+          headerTitle: () => <BrandHeaderTitle />,
+          headerTitleAlign: 'center',
           tabBarLabel: 'Home',
           tabBarIcon: tabIcon('home'),
         }}
