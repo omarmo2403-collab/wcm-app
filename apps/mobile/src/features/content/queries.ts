@@ -64,6 +64,7 @@ const eventSchema = z.object({
   all_day: z.boolean(),
   category: z.string(),
   location: z.string().nullable(),
+  image_path: z.string().nullable(),
 });
 export type WcmEvent = z.infer<typeof eventSchema>;
 
@@ -74,7 +75,7 @@ export function useEvents() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('events')
-        .select('id,title,description,starts_at,ends_at,all_day,category,location')
+        .select('id,title,description,starts_at,ends_at,all_day,category,location,image_path')
         .eq('is_published', true)
         .gte('starts_at', new Date().toISOString())
         .order('starts_at')

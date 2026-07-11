@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Calendar from 'expo-calendar';
+import { Image } from 'expo-image';
 import Stack from 'expo-router/stack';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -7,6 +8,7 @@ import { Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from '
 
 import { CardTitle, SectionCard } from '@/components/ui/section-card';
 import { useEvents } from '@/features/content/queries';
+import { mediaUrl } from '@/features/home/queries';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 export default function EventDetailScreen() {
@@ -65,6 +67,15 @@ export default function EventDetailScreen() {
           <Text style={styles.heroWhen}>{when}</Text>
         </View>
 
+        {event.image_path ? (
+          <Image
+            source={mediaUrl(event.image_path)}
+            style={styles.eventImage}
+            contentFit="cover"
+            accessibilityLabel={`${event.title} poster`}
+          />
+        ) : null}
+
         <SectionCard>
           <CardTitle>Details</CardTitle>
           <Text style={styles.body}>{event.description || 'No further details.'}</Text>
@@ -95,6 +106,13 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   muted: { color: colors.textSecondary, fontSize: 14 },
   hero: { backgroundColor: colors.primary, padding: spacing.xl, alignItems: 'center' },
+  eventImage: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    height: 190,
+    borderRadius: radii.card,
+    backgroundColor: colors.border,
+  },
   heroDate: {
     color: colors.textOnPrimary,
     fontWeight: '700',

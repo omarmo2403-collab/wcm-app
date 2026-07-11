@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { supabase } from '../lib/supabase';
 
-type ColumnType = 'text' | 'textarea' | 'number' | 'bool' | 'datetime' | 'time' | 'select';
+type ColumnType = 'text' | 'textarea' | 'number' | 'bool' | 'datetime' | 'time' | 'select' | 'image';
+
+const MEDIA_URL = 'https://gjffozmcbdtafdsxifyq.supabase.co/storage/v1/object/public/media/';
 
 interface Column {
   key: string;
@@ -38,6 +40,7 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
         options: ['community', 'lecture', 'madrasah', 'stadium', 'ramadan', 'eid', 'fundraising'],
       },
       { key: 'location', label: 'Location', type: 'text', listHidden: true },
+      { key: 'image_path', label: 'Image', type: 'image', listHidden: true },
       { key: 'is_published', label: 'Published', type: 'bool' },
     ],
   },
@@ -50,19 +53,6 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
       { key: 'body', label: 'Body', type: 'textarea', listHidden: true },
       { key: 'published_at', label: 'Published at', type: 'datetime' },
       { key: 'is_published', label: 'Published', type: 'bool' },
-    ],
-  },
-  scholar: {
-    table: 'scholar_questions',
-    title: 'Scholar Questions',
-    note: 'Questions submitted from the app. Reply by email, then set status to answered.',
-    orderBy: 'created_at',
-    columns: [
-      { key: 'created_at', label: 'Received', type: 'datetime' },
-      { key: 'name', label: 'Name', type: 'text' },
-      { key: 'email', label: 'Email', type: 'text' },
-      { key: 'question', label: 'Question', type: 'textarea' },
-      { key: 'status', label: 'Status', type: 'select', options: ['new', 'answered', 'archived'] },
     ],
   },
   notices: {
@@ -224,6 +214,42 @@ function Editor({
                 <option key={o}>{o}</option>
               ))}
             </select>
+          ) : c.type === 'image' ? (
+            <div>
+              {values[c.key] ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <img
+                    src={MEDIA_URL + String(values[c.key])}
+                    alt=""
+                    style={{ height: 60, borderRadius: 6, border: '1px solid var(--border)' }}
+                  />
+                  <button
+                    className="btn secondary"
+                    type="button"
+                    onClick={() => setValues((v) => ({ ...v, [c.key]: '' }))}
+                  >
+                    Remove image
+                  </button>
+                </div>
+              ) : null}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setErr('');
+                  const path = `${config.table}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+                  const { error } = await supabase.storage.from('media').upload(path, file, {
+                    cacheControl: '31536000',
+                    upsert: false,
+                  });
+                  if (error) setErr(`Image upload failed: ${error.message}`);
+                  else setValues((v) => ({ ...v, [c.key]: path }));
+                  e.target.value = '';
+                }}
+              />
+            </div>
           ) : (
             <input
               type={c.type === 'datetime' ? 'datetime-local' : c.type === 'time' ? 'time' : c.type === 'number' ? 'number' : 'text'}

@@ -12,7 +12,6 @@ type IconName = keyof typeof Ionicons.glyphMap;
 const ITEMS: { icon: IconName; label: string; slug: string }[] = [
   { icon: 'business-outline', label: 'About the Masjid', slug: 'about' },
   { icon: 'newspaper-outline', label: 'Latest News', slug: 'news' },
-  { icon: 'help-circle-outline', label: 'Ask the Scholar', slug: 'ask-scholar' },
   { icon: 'compass-outline', label: 'Qibla Direction', slug: 'qibla' },
   { icon: 'call-outline', label: 'Contact Us', slug: 'contact' },
   { icon: 'notifications-outline', label: 'Notifications', slug: 'notifications' },
@@ -39,7 +38,6 @@ export default function MoreScreen() {
                 notifications: '/notification-settings',
                 about: '/about',
                 news: '/news',
-                'ask-scholar': '/ask-scholar',
                 qibla: '/qibla',
                 contact: '/contact',
                 services: '/services',

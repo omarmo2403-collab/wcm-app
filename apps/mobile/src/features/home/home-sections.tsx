@@ -20,12 +20,12 @@ import { useUi } from '@/stores/ui';
 
 /* ---------- Quick actions (prototype .quick-actions) ---------- */
 
-// prototype: .donate-icon --purple, .events-icon --green, .qibla-icon #2980B9, .scholar-icon #E67E22
+// prototype colours; 4th slot is Timetable (Ask-Scholar removed per Omar)
 const ACTIONS = [
   { label: 'Donate', icon: 'hand-heart' as const, color: '#914BA1', route: '/donate' },
   { label: 'Events', icon: 'calendar-month' as const, color: '#159778', route: '/events' },
   { label: 'Qibla', icon: 'compass' as const, color: '#2980B9', route: '/qibla' },
-  { label: 'Scholar', icon: 'help-circle' as const, color: '#E67E22', route: '/ask-scholar' },
+  { label: 'Timetable', icon: 'clock-outline' as const, color: '#E67E22', route: '/prayer-times' },
 ];
 
 export function QuickActions() {
@@ -86,21 +86,18 @@ const BANNER_GRADIENTS: Record<string, [string, string, string]> = {
   sponsor: ['#1B5E20', '#2E7D32', '#159778'],
   events: ['#0D47A1', '#1565C0', '#1976D2'],
   madrasah: ['#4A148C', '#6A1B9A', '#914BA1'],
-  scholar: ['#E65100', '#EF6C00', '#F57C00'],
 };
 const CTA_LABELS: Record<string, string> = {
   sponsor: 'Donate Now',
   events: 'View Events',
   madrasah: 'Learn More',
-  scholar: 'Ask Now',
 };
 function bannerTheme(banner: Banner, index: number): string {
   const t = (banner.action_target ?? '').toLowerCase();
   if (t.includes('donate')) return 'sponsor';
   if (t.includes('madrasah')) return 'madrasah';
-  if (t.includes('scholar')) return 'scholar';
   if (t.includes('event')) return 'events';
-  return ['sponsor', 'madrasah', 'scholar'][index % 3] as string;
+  return ['sponsor', 'madrasah', 'events'][index % 3] as string;
 }
 
 function BannerCard({ banner, width, index }: { banner: Banner; width: number; index: number }) {
