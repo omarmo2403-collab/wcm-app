@@ -27,6 +27,24 @@ export function usePrayerTimes() {
   });
 }
 
+/** Full calendar month for the timetable screen — whatever the admin imported. */
+export function useMonthTimetable(month: string) {
+  return useQuery({
+    queryKey: ['prayer_times_month', month],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<DayTimetable[]> => {
+      const { data, error } = await supabase
+        .from('prayer_times')
+        .select('*')
+        .gte('date', `${month}-01`)
+        .lte('date', `${month}-31`)
+        .order('date');
+      if (error) throw error;
+      return data.map((row) => dayTimetableSchema.parse(row));
+    },
+  });
+}
+
 export function useJumuahTimes() {
   return useQuery({
     queryKey: ['jumuah_times'],
