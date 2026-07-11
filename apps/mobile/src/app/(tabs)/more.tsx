@@ -30,7 +30,11 @@ export default function MoreScreen() {
               i < ITEMS.length - 1 && styles.itemBorder,
               pressed && styles.pressed,
             ]}
-            onPress={() => router.push({ pathname: '/coming-soon', params: { title: item.label } })}
+            onPress={() =>
+              item.slug === 'notifications'
+                ? router.push('/notification-settings')
+                : router.push({ pathname: '/coming-soon', params: { title: item.label } })
+            }
           >
             <Ionicons name={item.icon} size={20} color={colors.primary} />
             <Text style={styles.label}>{item.label}</Text>
