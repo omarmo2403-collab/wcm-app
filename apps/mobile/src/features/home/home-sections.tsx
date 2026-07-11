@@ -67,14 +67,16 @@ export function NoticeStrip() {
     }
   };
 
-  // prototype .notice-strip: amber left accent + chevron link, no dismiss
+  // amber alert strip — deliberately prominent (Omar, 12 Jul 2026)
   return (
     <Pressable style={({ pressed }) => [styles.notice, pressed && styles.pressed]} onPress={open}>
-      <MaterialCommunityIcons name="car" size={16} color="#F9A825" />
+      <View style={styles.noticeIcon}>
+        <MaterialCommunityIcons name="car" size={17} color="#fff" />
+      </View>
       <Text style={styles.noticeText} numberOfLines={2}>
         {notice.message}
       </Text>
-      <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+      <Ionicons name="chevron-forward" size={16} color="#B7791F" />
     </Pressable>
   );
 }
@@ -230,21 +232,35 @@ const styles = StyleSheet.create({
   },
   actionLabel: { fontSize: 11, fontWeight: '500', color: colors.textSecondary },
 
-  // prototype: #FFF8E1 bg, 3px #F9A825 left border, radius-sm, 12px text
+  // prominent amber alert strip: solid icon badge, bold text, strong border
   notice: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FFF8E1',
-    borderLeftColor: '#F9A825',
-    borderLeftWidth: 3,
+    gap: 12,
+    backgroundColor: '#FFF3CD',
+    borderColor: '#F9A825',
+    borderWidth: 1,
+    borderLeftWidth: 5,
     borderRadius: radii.input,
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    elevation: 2,
+    shadowColor: '#B7791F',
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
   },
-  noticeText: { flex: 1, fontSize: 12, color: colors.text },
+  noticeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: '#F9A825',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noticeText: { flex: 1, fontSize: 13.5, fontWeight: '700', color: '#7A5A00' },
 
   // prototype .banner-img: min-height 160, content bottom-aligned, CTA pill
   banner: {
