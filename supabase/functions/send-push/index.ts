@@ -82,10 +82,35 @@ Deno.serve(async (req) => {
       });
   }
 
-  if (body.action === 'list_scheduled') {
-    const scheduled = await fetchPending();
-    if (scheduled === null) return json({ ok: false, errors: 'could not reach OneSignal' }, 502);
-    return json({ ok: true, scheduled });
+  // ONE-TIME migration: move OneSignal-held schedules into the queue.
+  // Deleted (along with fetchPending and cancel) once the import has run.
+  if (body.action === 'migrate_scheduled') {
+    const pending = await fetchPending();
+    if (pending === null) return json({ ok: false, errors: 'could not reach OneSignal' }, 502);
+    const service = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    let imported = 0, canceled = 0;
+    const details: unknown[] = [];
+    for (const n of pending) {
+      const { error } = await service.from('notification_queue').insert({
+        source: n.route === '/stadium' ? 'stadium' : 'template',
+        title: n.title, message: n.message,
+        topic: n.topic ?? 'events',
+        route: n.route, url: n.url,
+        fire_at: new Date((n.send_after as number) * 1000).toISOString(),
+        created_by: user!.id,
+      });
+      if (!error) imported++;
+      const del = await fetch(
+        `https://api.onesignal.com/notifications/${n.id}?app_id=${ONESIGNAL_APP_ID}`,
+        { method: 'DELETE', headers: { Authorization: `Key ${key}` } },
+      );
+      if (del.ok) canceled++;
+      details.push({ title: n.title, imported: !error, canceled: del.ok, error: error?.message ?? null });
+    }
+    return json({ ok: true, found: pending.length, imported, canceled, details });
   }
 
   // action: 'cancel' — cancel a scheduled notification by id
@@ -99,7 +124,7 @@ Deno.serve(async (req) => {
     return json({ ok: resp.ok, ...result }, resp.ok ? 200 : 502);
   }
 
-  const { title, message, topic, url, route, send_after } = body;
+  const { title, message, topic, url, route } = body;
   if (typeof title !== 'string' || !title.trim()) return json({ error: 'title required' }, 400);
   if (typeof message !== 'string' || !message.trim()) return json({ error: 'message required' }, 400);
   if (title.length > 65) return json({ error: 'title too long (max 65 characters)' }, 400);
@@ -124,38 +149,8 @@ Deno.serve(async (req) => {
       }, 400);
     }
   }
-  // optional scheduling: ISO instant, must be in the future (max ~1 year out)
-  let sendAfter: string | null = null;
-  if (send_after != null) {
-    const t = Date.parse(String(send_after));
-    if (Number.isNaN(t)) return json({ error: 'invalid send_after' }, 400);
-    if (t < Date.now() + 60_000) return json({ error: 'send_after must be in the future' }, 400);
-    // OneSignal rejects schedules beyond ~30 days ("may not be scheduled so
-    // far in the future") — fail early with a clear message
-    if (t > Date.now() + 30 * 24 * 3600 * 1000) {
-      return json({
-        error: 'send_after too far ahead',
-        message: 'Notifications can only be scheduled up to 30 days ahead. Event-day reminders are sent automatically at 5pm UK, so recurring events need no scheduling.',
-      }, 400);
-    }
-    sendAfter = new Date(t).toISOString();
-
-    // duplicate guard: refuse a second notification to the SAME topic in the
-    // SAME minute — catches the same schedule being uploaded twice, or two
-    // sections (composer / template / stadium import) booking the same slot
-    const pending = await fetchPending();
-    if (pending === null) return json({ ok: false, errors: 'could not reach OneSignal' }, 502);
-    const targetMinute = Math.floor(t / 60_000);
-    const dup = pending.find((n) =>
-      n.topic === topic && Math.floor(((n.send_after as number) * 1000) / 60_000) === targetMinute);
-    if (dup) {
-      return json({
-        ok: false,
-        error: 'duplicate_scheduled',
-        message: `Already scheduled: "${dup.title}" goes to the same audience (${topic}) at that exact time. Cancel it in Scheduled Notifications first if you want to replace it.`,
-      }, 409);
-    }
-  }
+  // Scheduling lives in notification_queue now (admin inserts rows directly;
+  // the dispatcher sends them) — this function only sends immediately.
 
   // Opt-out topics also reach devices that never wrote tags; explicit
   // tag 'false' (set by the in-app toggle) excludes them.
@@ -178,19 +173,37 @@ Deno.serve(async (req) => {
       headings: { en: title },
       contents: { en: message },
       filters,
-      ...(sendAfter ? { send_after: sendAfter } : {}),
       ...(typeof url === 'string' && url ? { url } : {}),
       // in-app deep link: the app's notification-click listener navigates here
       ...(typeof route === 'string' && route.startsWith('/') ? { data: { route } } : {}),
     }),
   });
   const result = await resp.json();
+  if (resp.ok) {
+    // every send leaves a log row — the admin's 30-day audit trail
+    const service = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    const src = body.source === 'prayer_change' ? 'prayer_change' : 'composer';
+    await service.from('notification_queue').insert({
+      source: src,
+      title, message, topic,
+      route: typeof route === 'string' && route.startsWith('/') ? route : null,
+      url: typeof url === 'string' && url && !(typeof route === 'string' && route.startsWith('/')) ? url : null,
+      fire_at: new Date().toISOString(),
+      status: 'sent',
+      sent_at: new Date().toISOString(),
+      onesignal_id: result.id ?? null,
+      recipients: result.recipients ?? null,
+      created_by: user!.id,
+    });
+  }
   return json(
     {
       ok: resp.ok,
       id: result.id ?? null,
       recipients: result.recipients ?? null,
-      scheduled_for: sendAfter,
       errors: result.errors ?? null,
     },
     resp.ok ? 200 : 502,
