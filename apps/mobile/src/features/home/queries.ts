@@ -36,6 +36,31 @@ export function useBanners() {
   });
 }
 
+const mediaItemSchema = z.object({
+  id: z.string(),
+  storage_path: z.string().nullable(),
+  caption: z.string().nullable(),
+  video_url: z.string().nullable(),
+});
+export type MediaItem = z.infer<typeof mediaItemSchema>;
+
+/** Photos & videos strip below the home banners (admin "Home Media"). */
+export function useHomeMedia() {
+  return useQuery({
+    queryKey: ['home_media'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('gallery_images')
+        .select('id,storage_path,caption,video_url')
+        .eq('is_published', true)
+        .order('sort_order');
+      if (error) throw error;
+      return data.map((r) => mediaItemSchema.parse(r));
+    },
+  });
+}
+
 const noticeSchema = z.object({
   id: z.string(),
   icon: z.string(),

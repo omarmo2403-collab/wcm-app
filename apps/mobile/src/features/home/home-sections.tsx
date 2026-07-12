@@ -16,7 +16,7 @@ import {
 
 
 import { colors, radii, spacing } from '@/theme/tokens';
-import { mediaUrl, useBanners, useNotices, type Banner } from './queries';
+import { mediaUrl, useBanners, useHomeMedia, useNotices, type Banner, type MediaItem } from './queries';
 import { useUi } from '@/stores/ui';
 
 /* ---------- Quick actions (prototype .quick-actions) ---------- */
@@ -256,8 +256,100 @@ export function BannerCarousel() {
   );
 }
 
+/* ---------- Photos & videos strip (admin "Home Media", below banners) ---------- */
+
+function MediaCard({ item }: { item: MediaItem }) {
+  const yt = item.video_url ? youtubeId(item.video_url) : null;
+  const thumb = item.storage_path
+    ? mediaUrl(item.storage_path)
+    : yt
+      ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg`
+      : null;
+  const open = () => {
+    const target = item.video_url ?? (item.storage_path ? mediaUrl(item.storage_path) : null);
+    if (target) WebBrowser.openBrowserAsync(target);
+  };
+
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.mediaCard, pressed && styles.pressed]}
+      onPress={open}
+      accessibilityRole="button"
+      accessibilityLabel={item.caption || (item.video_url ? 'Play video' : 'View photo')}
+    >
+      {thumb ? (
+        <Image source={thumb} style={StyleSheet.absoluteFill} contentFit="cover" />
+      ) : (
+        <LinearGradient colors={['#1B1B1B', '#444']} style={StyleSheet.absoluteFill} />
+      )}
+      {item.video_url ? (
+        <View style={styles.mediaPlayBadge}>
+          <Ionicons name="play" size={16} color="#fff" style={{ marginLeft: 2 }} />
+        </View>
+      ) : null}
+      {item.caption ? (
+        <View style={styles.mediaCaptionBar}>
+          <Text style={styles.mediaCaptionText} numberOfLines={1}>
+            {item.caption}
+          </Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
+export function MediaStrip() {
+  const media = useHomeMedia();
+  if (!media.data || media.data.length === 0) return null;
+
+  return (
+    <View style={styles.mediaSection}>
+      <FlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={media.data}
+        keyExtractor={(m) => m.id}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
+        renderItem={({ item }) => <MediaCard item={item} />}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   pressed: { opacity: 0.85 },
+
+  mediaSection: { marginTop: spacing.md, marginBottom: spacing.sm },
+  mediaCard: {
+    width: 190,
+    height: 116,
+    borderRadius: radii.card,
+    overflow: 'hidden',
+    backgroundColor: colors.border,
+  },
+  mediaPlayBadge: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -16,
+    marginLeft: -16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediaCaptionBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  mediaCaptionText: { color: '#fff', fontSize: 11.5, fontWeight: '600' },
 
   actionsRow: {
     flexDirection: 'row',

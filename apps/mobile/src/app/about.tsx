@@ -33,6 +33,14 @@ export default function AboutScreen() {
           <Text style={styles.heroSub}>Registered Charity No. {charityNo}</Text>
         </View>
 
+        {/* the masjid building — same photo as the website's About page */}
+        <Image
+          source={require('../../assets/images/masjid-photo.jpeg')}
+          style={styles.masjidPhoto}
+          contentFit="cover"
+          accessibilityLabel="Wembley Central Masjid building on Ealing Road"
+        />
+
         {/* copy from wembleycentralmasjid.co.uk/about-us/ */}
         <SectionCard>
           <CardTitle>Our History</CardTitle>
@@ -93,6 +101,13 @@ const styles = StyleSheet.create({
   content: { paddingBottom: spacing.xl },
   hero: { backgroundColor: colors.primary, alignItems: 'center', padding: spacing.xl },
   heroMark: { width: 110, height: 58 },
+  masjidPhoto: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    height: 200,
+    borderRadius: radii.card,
+    backgroundColor: colors.border,
+  },
   heroTitle: { color: colors.textOnPrimary, fontSize: 20, fontWeight: '700', marginTop: spacing.sm },
   heroSub: { color: colors.textOnPrimary, opacity: 0.9, fontSize: 13, marginTop: 2 },
   body: { fontSize: 14, color: colors.text, lineHeight: 21 },

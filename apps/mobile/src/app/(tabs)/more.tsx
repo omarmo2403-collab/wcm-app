@@ -68,6 +68,7 @@ export default function MoreScreen() {
           style={styles.creditLogo}
           contentFit="contain"
         />
+        <Text style={styles.creditLink}>www.afom.co.uk</Text>
       </Pressable>
     </ScrollView>
   );
@@ -109,4 +110,5 @@ const styles = StyleSheet.create({
   },
   creditText: { fontSize: 12, color: colors.textMuted },
   creditLogo: { width: 96, height: 18 },
+  creditLink: { fontSize: 12, color: colors.textSecondary, textDecorationLine: 'underline' },
 });

@@ -18,6 +18,7 @@ const NAV: { key: SectionKey; label: string }[] = [
   { key: 'news', label: 'News' },
   { key: 'notices', label: 'Notices' },
   { key: 'banners', label: 'Banners' },
+  { key: 'media', label: 'Home Media' },
   { key: 'donations', label: 'Donations' },
   { key: 'madrasah', label: 'Madrasah' },
   { key: 'services', label: 'Services' },

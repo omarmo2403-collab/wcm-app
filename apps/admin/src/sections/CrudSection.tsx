@@ -87,6 +87,19 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
       { key: 'is_active', label: 'Active', type: 'bool' },
     ],
   },
+  media: {
+    table: 'gallery_images',
+    title: 'Home Media',
+    note: 'Photos and videos shown in the strip below the home banners. Upload a photo, or add a video (YouTube link or upload) — a photo alongside a video acts as its thumbnail.',
+    orderBy: 'sort_order',
+    columns: [
+      { key: 'caption', label: 'Caption (optional)', type: 'text' },
+      { key: 'storage_path', label: 'Photo (or video thumbnail)', type: 'image', listHidden: true },
+      { key: 'video_url', label: 'Video (YouTube link or upload)', type: 'video', listHidden: true },
+      { key: 'sort_order', label: 'Order', type: 'number' },
+      { key: 'is_published', label: 'Published', type: 'bool' },
+    ],
+  },
   donations: {
     table: 'donation_categories',
     title: 'Donation Categories',

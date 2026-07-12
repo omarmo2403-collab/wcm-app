@@ -1,9 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Calendar from 'expo-calendar';
 import { Image } from 'expo-image';
 import Stack from 'expo-router/stack';
 import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
 import { Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 import { CardTitle, SectionCard } from '@/components/ui/section-card';
@@ -16,7 +14,6 @@ export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const query = useEvent(id);
   const event = query.data;
-  const [calStatus, setCalStatus] = useState('');
 
   if (!event) {
     return (
@@ -39,23 +36,6 @@ export default function EventDetailScreen() {
   const when = `${starts.toLocaleDateString('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long' })}${
     event.all_day ? ' (all day)' : ` at ${starts.toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: 'numeric', minute: '2-digit' })}`
   }`;
-
-  const addToCalendar = async () => {
-    if (Platform.OS === 'web') return;
-    try {
-      await Calendar.createEventInCalendarAsync({
-        title: event.title,
-        notes: event.description,
-        location: event.location ?? 'Wembley Central Masjid, 35-37 Ealing Road, Wembley HA0 4AE',
-        startDate: starts,
-        endDate: event.ends_at ? new Date(event.ends_at) : new Date(starts.getTime() + 60 * 60 * 1000),
-        allDay: event.all_day,
-      });
-      setCalStatus('Opened in your calendar ✓');
-    } catch {
-      setCalStatus('Calendar unavailable on this device');
-    }
-  };
 
   const share = () =>
     Share.share({
@@ -91,15 +71,10 @@ export default function EventDetailScreen() {
 
         {Platform.OS !== 'web' && (
           <SectionCard>
-            <Pressable style={styles.button} onPress={addToCalendar}>
-              <Ionicons name="calendar" size={16} color={colors.textOnPrimary} />
-              <Text style={styles.buttonText}> Add to calendar</Text>
-            </Pressable>
             <Pressable style={styles.buttonSecondary} onPress={share}>
               <Ionicons name="share-social" size={16} color={colors.primary} />
               <Text style={styles.buttonSecondaryText}> Share</Text>
             </Pressable>
-            {calStatus ? <Text style={styles.calStatus}>{calStatus}</Text> : null}
           </SectionCard>
         )}
       </ScrollView>
