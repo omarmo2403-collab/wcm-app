@@ -4,17 +4,19 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import { Timetable } from './sections/Timetable';
 import { CrudSection, CRUD_SECTIONS } from './sections/CrudSection';
+import { Notifications } from './sections/Notifications';
 import { PushComposer } from './sections/PushComposer';
 import { SchedulePush } from './sections/SchedulePush';
 import { StadiumDays } from './sections/StadiumDays';
 import { ConfigSection } from './sections/Config';
 import { AuditLog } from './sections/Audit';
 
-type SectionKey = 'timetable' | keyof typeof CRUD_SECTIONS | 'stadiumdays' | 'push' | 'schedule' | 'config' | 'audit';
+type SectionKey = 'timetable' | keyof typeof CRUD_SECTIONS | 'notifications' | 'stadiumdays' | 'push' | 'schedule' | 'config' | 'audit';
 
 const NAV: { key: SectionKey; label: string }[] = [
   { key: 'timetable', label: 'Prayer Times' },
   { key: 'events', label: 'Events' },
+  { key: 'notifications', label: 'Notifications' },
   { key: 'news', label: 'News' },
   { key: 'notices', label: 'Notices' },
   { key: 'banners', label: 'Banners' },
@@ -143,6 +145,7 @@ export default function App() {
         {section in CRUD_SECTIONS && (
           <CrudSection key={section} config={CRUD_SECTIONS[section as keyof typeof CRUD_SECTIONS]} />
         )}
+        {section === 'notifications' && <Notifications goTo={(s) => setSection(s as SectionKey)} />}
         {section === 'stadiumdays' && <StadiumDays />}
         {section === 'push' && <PushComposer />}
         {section === 'schedule' && <SchedulePush />}
