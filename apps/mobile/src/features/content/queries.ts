@@ -56,6 +56,29 @@ export function useMadrasahClasses() {
   });
 }
 
+const stadiumDaySchema = z.object({
+  id: z.string(),
+  date: z.string(),
+});
+export type StadiumDay = z.infer<typeof stadiumDaySchema>;
+
+/** Wembley stadium event days — their own table, fully separate from events. */
+export function useStadiumDays() {
+  return useQuery({
+    queryKey: ['stadium_days'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('stadium_days')
+        .select('id,date')
+        .gte('date', londonToday(new Date()))
+        .order('date');
+      if (error) throw error;
+      return data.map((r) => stadiumDaySchema.parse(r));
+    },
+  });
+}
+
 const eventSchema = z.object({
   id: z.string(),
   title: z.string(),

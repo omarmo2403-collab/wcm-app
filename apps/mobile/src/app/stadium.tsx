@@ -4,7 +4,7 @@ import Stack from 'expo-router/stack';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CardTitle, SectionCard } from '@/components/ui/section-card';
-import { useEvents } from '@/features/content/queries';
+import { useStadiumDays } from '@/features/content/queries';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 /** "12" -> "12th", "1" -> "1st" (prototype date format: "12th April") */
@@ -15,8 +15,8 @@ function ordinal(n: number): string {
 }
 
 export default function StadiumScreen() {
-  const events = useEvents();
-  const stadiumDays = (events.data ?? []).filter((e) => e.category === 'stadium');
+  const days = useStadiumDays();
+  const stadiumDays = days.data ?? [];
 
   return (
     <>
@@ -50,7 +50,7 @@ export default function StadiumScreen() {
           ) : (
             <View style={styles.datesWrap}>
               {stadiumDays.map((e) => {
-                const d = new Date(e.starts_at);
+                const d = new Date(`${e.date}T12:00:00Z`);
                 return (
                   <View key={e.id} style={styles.dateRow}>
                     <Text style={styles.dateDay}>

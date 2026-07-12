@@ -39,7 +39,8 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
         key: 'category',
         label: 'Category',
         type: 'select',
-        options: ['community', 'lecture', 'madrasah', 'stadium', 'ramadan', 'eid', 'fundraising'],
+        // 'stadium' intentionally absent — stadium days have their own section
+        options: ['community', 'lecture', 'madrasah', 'ramadan', 'eid', 'fundraising'],
       },
       { key: 'location', label: 'Location', type: 'text', listHidden: true },
       { key: 'image_path', label: 'Image', type: 'image', listHidden: true },

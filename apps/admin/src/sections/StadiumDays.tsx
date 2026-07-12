@@ -8,7 +8,7 @@ import { callSendPush, supabase } from '../lib/supabase';
  * each month ("WEMBLEY EVENT DAYS" — a list like "Wednesday - 01st July").
  * Parsing verified against the real July 2026 PDF. Accepts PDF, Excel, CSV
  * or Word. Saving REPLACES the stadium days of the covered month(s) in the
- * events table (category 'stadium'), which is what the app's Stadium screen
+ * dedicated stadium_days table, which is what the app's Stadium screen
  * and Events tab read. Optionally schedules a morning push for each day.
  */
 
@@ -24,9 +24,9 @@ interface ParsedDay {
   weekdayOk: boolean; // stated weekday matches the actual date
 }
 
-interface StadiumEvent {
+interface StadiumDay {
   id: string;
-  starts_at: string;
+  date: string;
 }
 
 /** UK wall time -> UTC ISO (handles BST/GMT) */
@@ -172,17 +172,16 @@ export function StadiumDays() {
   const [saving, setSaving] = useState(false);
   const [notify, setNotify] = useState(true);
   const [notifyTime, setNotifyTime] = useState('08:00');
-  const [existing, setExisting] = useState<StadiumEvent[]>([]);
+  const [existing, setExisting] = useState<StadiumDay[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refreshExisting = useCallback(async () => {
     const { data } = await supabase
-      .from('events')
-      .select('id,starts_at')
-      .eq('category', 'stadium')
-      .gte('starts_at', new Date().toISOString())
-      .order('starts_at');
-    setExisting((data as StadiumEvent[]) ?? []);
+      .from('stadium_days')
+      .select('id,date')
+      .gte('date', new Date().toISOString().slice(0, 10))
+      .order('date');
+    setExisting((data as StadiumDay[]) ?? []);
   }, []);
 
   useEffect(() => { refreshExisting(); }, [refreshExisting]);
@@ -220,22 +219,18 @@ export function StadiumDays() {
     setStatus('Saving…');
     try {
       // atomic replace of the covered month(s) — one transaction server-side,
-      // so a failure can never leave a month emptied but not refilled
+      // so a failure can never leave a month emptied but not refilled.
+      // stadium_days is its OWN table: never mixed with events.
       const windows = months.map((ym) => {
         const [y, m] = ym.split('-').map(Number);
         return {
-          from: new Date(Date.UTC(y!, m! - 1, 1)).toISOString(),
-          to: new Date(Date.UTC(y!, m!, 1)).toISOString(),
+          from: `${ym}-01`,
+          to: m === 12 ? `${y! + 1}-01-01` : `${y}-${String(m! + 1).padStart(2, '0')}-01`,
         };
       });
       const { error } = await supabase.rpc('replace_stadium_days', {
         windows,
-        days: days.map((d) => ({
-          title: 'Wembley Stadium Event Day',
-          description:
-            'Significant parking restrictions and increased traffic around the Masjid today. Please plan your journey and use public transport where possible.',
-          starts_at: ukToIso(d.date, '12:00'),
-        })),
+        days: days.map((d) => d.date),
       });
       if (error) throw new Error(error.message);
 
@@ -367,7 +362,7 @@ export function StadiumDays() {
           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.9 }}>
             {existing.map((e) => (
               <li key={e.id}>
-                {new Date(e.starts_at).toLocaleDateString('en-GB', {
+                {new Date(`${e.date}T12:00:00Z`).toLocaleDateString('en-GB', {
                   timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
                 })}
               </li>
@@ -375,8 +370,8 @@ export function StadiumDays() {
           </ul>
         )}
         <p className="note" style={{ marginTop: 8 }}>
-          Individual days can also be added or removed by hand in the Events section
-          (category "stadium").
+          Stadium days are fully separate from Events — they live only here and on the app&apos;s
+          Stadium screen.
         </p>
       </div>
     </>
