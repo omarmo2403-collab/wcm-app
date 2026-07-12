@@ -6,7 +6,8 @@ import { Platform } from 'react-native';
  * commit (it can only ingest events, not read them). Empty DSN = Sentry
  * fully disabled, so the app never depends on it existing.
  */
-export const SENTRY_DSN = '';
+export const SENTRY_DSN =
+  'https://ecc34e78ea333735a05f93ec4e5f6dc3@o4511713420640256.ingest.de.sentry.io/4511722351427664';
 
 export function initSentry(): void {
   if (!SENTRY_DSN || Platform.OS === 'web' || __DEV__) return;
