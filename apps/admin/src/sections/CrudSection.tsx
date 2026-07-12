@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { composeEventReminder, type QueueRow } from '../lib/queue';
 import { supabase } from '../lib/supabase';
+import { formatUk, isoToUkInput, ukToIso } from '../lib/uktime';
 
 type ColumnType = 'text' | 'textarea' | 'number' | 'bool' | 'datetime' | 'time' | 'select' | 'image' | 'video';
 
@@ -12,6 +14,8 @@ interface Column {
   type: ColumnType;
   options?: string[];
   listHidden?: boolean;
+  /** managed by a custom control (e.g. the events schedule fields), not rendered as a plain input */
+  formHidden?: boolean;
 }
 
 export interface CrudConfig {
@@ -26,15 +30,15 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
   events: {
     table: 'events',
     title: 'Events',
-    note: 'Only published events appear in the app. Times are UK local.',
+    note: 'Only published events appear in the app. All times are UK (Europe/London), whatever timezone this computer is in.',
     orderBy: 'starts_at',
     columns: [
       { key: 'title', label: 'Title', type: 'text' },
       { key: 'description', label: 'Description', type: 'textarea', listHidden: true },
-      { key: 'starts_at', label: 'Starts', type: 'datetime' },
-      { key: 'all_day', label: 'All day', type: 'bool' },
-      { key: 'time_label', label: 'Time/venue note (e.g. "After Maghrib Salah") — shown instead of the clock time', type: 'text', listHidden: true },
-      { key: 'notify_at', label: 'Reminder time (blank = automatic: 2h before start, or 9am for all-day events)', type: 'datetime', listHidden: true },
+      { key: 'starts_at', label: 'Starts (UK)', type: 'datetime' },
+      { key: 'all_day', label: 'All day', type: 'bool', listHidden: true, formHidden: true },
+      { key: 'time_label', label: 'Time label', type: 'text', listHidden: true, formHidden: true },
+      { key: 'notify_at', label: 'Reminder', type: 'datetime', listHidden: true, formHidden: true },
       {
         key: 'category',
         label: 'Category',
@@ -55,7 +59,7 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
       { key: 'title', label: 'Title', type: 'text' },
       { key: 'body', label: 'Body', type: 'textarea', listHidden: true },
       { key: 'image_path', label: 'Image (optional)', type: 'image', listHidden: true },
-      { key: 'published_at', label: 'Published at', type: 'datetime' },
+      { key: 'published_at', label: 'Published at (UK)', type: 'datetime' },
       { key: 'is_published', label: 'Published', type: 'bool' },
     ],
   },
@@ -69,8 +73,8 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
       { key: 'icon', label: 'Icon', type: 'text' },
       { key: 'action_type', label: 'Action', type: 'select', options: ['none', 'screen', 'url'] },
       { key: 'action_target', label: 'Target', type: 'text' },
-      { key: 'starts_at', label: 'From', type: 'datetime' },
-      { key: 'ends_at', label: 'Until', type: 'datetime' },
+      { key: 'starts_at', label: 'From (UK)', type: 'datetime' },
+      { key: 'ends_at', label: 'Until (UK)', type: 'datetime' },
       { key: 'is_active', label: 'Active', type: 'bool' },
     ],
   },
@@ -164,12 +168,7 @@ type Row = Record<string, unknown> & { id: string };
 function toInput(value: unknown, type: ColumnType): string | boolean {
   if (type === 'bool') return Boolean(value);
   if (value == null) return '';
-  if (type === 'datetime') {
-    const d = new Date(String(value));
-    if (Number.isNaN(d.getTime())) return '';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
+  if (type === 'datetime') return isoToUkInput(String(value));
   if (type === 'time') return String(value).slice(0, 5);
   return String(value);
 }
@@ -184,7 +183,10 @@ function fromInput(value: string | boolean, type: ColumnType): unknown {
     return null; // datetime / image / video / select: nullable by design
   }
   if (type === 'number') return Number(value);
-  if (type === 'datetime') return new Date(value).toISOString();
+  if (type === 'datetime') {
+    const [d, t] = value.split('T');
+    return ukToIso(d!, t || '00:00');
+  }
   return value;
 }
 
@@ -224,10 +226,7 @@ function Editor({
     else onDone(true);
   };
 
-  return (
-    <div className="card">
-      <h3>{row ? 'Edit' : 'New'}</h3>
-      {config.columns.map((c) => (
+  const renderField = (c: Column) => (
         <div key={c.key}>
           <label>{c.label}</label>
           {c.type === 'textarea' ? (
@@ -325,7 +324,21 @@ function Editor({
             />
           )}
         </div>
-      ))}
+  );
+
+  const visible = config.columns.filter((c) => !c.formHidden);
+  const splitAt = config.table === 'events'
+    ? visible.findIndex((c) => c.key === 'starts_at') + 1
+    : visible.length;
+
+  return (
+    <div className="card">
+      <h3>{row ? 'Edit' : 'New'}</h3>
+      {visible.slice(0, splitAt).map(renderField)}
+      {config.table === 'events' && (
+        <EventScheduleFields values={values} setValues={setValues} row={row} />
+      )}
+      {visible.slice(splitAt).map(renderField)}
       {err && <p className="err" style={{ marginTop: 10 }}>{err}</p>}
       <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
         <button className="btn" onClick={save}>Save</button>
@@ -335,9 +348,135 @@ function Editor({
   );
 }
 
+/**
+ * Events-only schedule controls: one "Time type" choice replaces the
+ * all_day/time_label tangle, and the "Reminder" picker writes an explicit
+ * notify_at (the DB default remains only a safety net). Shows the exact
+ * push text that will go out, and the sent/failed status afterwards.
+ */
+function EventScheduleFields({ values, setValues, row }: {
+  values: Record<string, string | boolean>;
+  setValues: React.Dispatch<React.SetStateAction<Record<string, string | boolean>>>;
+  row: Row | null;
+}) {
+  const timeType: 'fixed' | 'flexible' | 'allday' = values.all_day
+    ? (String(values.time_label ?? '').trim() ? 'flexible' : 'allday')
+    : 'fixed';
+  const [reminderMode, setReminderMode] = useState<'auto' | 'morning' | 'custom' | 'none'>(
+    () => (row ? (values.notify_at ? 'custom' : 'none') : 'auto'),
+  );
+  const [queueRow, setQueueRow] = useState<QueueRow | null>(null);
+
+  useEffect(() => {
+    if (!row) return;
+    supabase.from('notification_queue')
+      .select('id,source,source_id,title,message,topic,route,url,fire_at,status,sent_at,recipients,error')
+      .eq('source', 'event').eq('source_id', row.id)
+      .order('created_at', { ascending: false }).limit(1)
+      .then(({ data }) => setQueueRow((data?.[0] as QueueRow) ?? null));
+  }, [row]);
+
+  const set = (k: string, v: string | boolean) => setValues((p) => ({ ...p, [k]: v }));
+
+  const startsInput = typeof values.starts_at === 'string' ? values.starts_at : '';
+  const day = startsInput.split('T')[0] ?? '';
+  const startsIso = startsInput
+    ? ukToIso(day, startsInput.split('T')[1] ?? '00:00')
+    : null;
+
+  const autoDefault = !startsIso
+    ? ''
+    : timeType === 'fixed'
+      ? isoToUkInput(new Date(Date.parse(startsIso) - 2 * 3600 * 1000).toISOString())
+      : `${day}T09:00`;
+
+  const applyReminder = (mode: 'auto' | 'morning' | 'custom' | 'none') => {
+    setReminderMode(mode);
+    if (mode === 'auto') set('notify_at', autoDefault);
+    else if (mode === 'morning') set('notify_at', day ? `${day}T09:00` : '');
+    else if (mode === 'none') set('notify_at', '');
+    // 'custom': the datetime input below manages the value
+  };
+
+  const effectiveNotify = reminderMode === 'none'
+    ? ''
+    : String(values.notify_at ?? '') || (reminderMode === 'auto' ? autoDefault : '');
+
+  const preview = startsIso
+    ? composeEventReminder({
+        title: String(values.title ?? ''),
+        starts_at: startsIso,
+        all_day: Boolean(values.all_day),
+        time_label: String(values.time_label ?? '').trim() || null,
+      })
+    : null;
+
+  return (
+    <>
+      <label>Time type</label>
+      <div style={{ display: 'flex', gap: 14, marginBottom: 8, flexWrap: 'wrap' }}>
+        {([['fixed', 'Fixed time'], ['flexible', 'Flexible (label instead of a time)'], ['allday', 'All day']] as const)
+          .map(([v, lbl]) => (
+            <label key={v} style={{ fontWeight: 400, display: 'flex', gap: 5, alignItems: 'center' }}>
+              <input type="radio" checked={timeType === v} style={{ width: 'auto', margin: 0 }}
+                onChange={() => {
+                  set('all_day', v !== 'fixed');
+                  if (v !== 'flexible') set('time_label', '');
+                }} />
+              {lbl}
+            </label>
+          ))}
+      </div>
+      {timeType === 'flexible' && (
+        <div>
+          <label>Time label (shown instead of a clock time, e.g. "After Maghrib Salah")</label>
+          <input value={String(values.time_label ?? '')} onChange={(e) => set('time_label', e.target.value)} />
+        </div>
+      )}
+
+      <label>Reminder notification</label>
+      <div style={{ display: 'flex', gap: 14, marginBottom: 6, flexWrap: 'wrap' }}>
+        {([['auto', timeType === 'fixed' ? 'Automatic (2h before)' : 'Automatic (9am UK)'],
+           ['morning', 'Morning of event (9am UK)'], ['custom', 'Custom (UK)'], ['none', 'No reminder']] as const)
+          .map(([v, lbl]) => (
+            <label key={v} style={{ fontWeight: 400, display: 'flex', gap: 5, alignItems: 'center' }}>
+              <input type="radio" checked={reminderMode === v} style={{ width: 'auto', margin: 0 }}
+                onChange={() => applyReminder(v)} />
+              {lbl}
+            </label>
+          ))}
+      </div>
+      {reminderMode === 'custom' && (
+        <input type="datetime-local" value={String(values.notify_at ?? '')}
+          onChange={(e) => set('notify_at', e.target.value)} />
+      )}
+
+      {queueRow?.status === 'sent' && (
+        <p className="ok">
+          Sent ✓ {formatUk(queueRow.sent_at!)} (UK)
+          {queueRow.recipients != null ? ` — ${queueRow.recipients} devices` : ''}
+        </p>
+      )}
+      {(queueRow?.status === 'failed' || queueRow?.status === 'expired') && (
+        <p className="err">Reminder {queueRow.status}{queueRow.error ? ` — ${queueRow.error}` : ''}</p>
+      )}
+      {effectiveNotify && preview && (
+        <p className="note">
+          Reminder fires {formatUk(ukToIso(effectiveNotify.split('T')[0]!, effectiveNotify.split('T')[1] ?? '00:00'))} (UK) —
+          "{preview.title}: {preview.message}"
+        </p>
+      )}
+      {reminderMode === 'none' && (
+        <p className="note">No push notification will be sent for this event.</p>
+      )}
+    </>
+  );
+}
+
 export function CrudSection({ config }: { config: CrudConfig }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [editing, setEditing] = useState<Row | null | 'new'>(null);
+  const [reminders, setReminders] = useState<Map<string, QueueRow>>(new Map());
   const [err, setErr] = useState('');
 
   const load = useCallback(async () => {
@@ -345,8 +484,29 @@ export function CrudSection({ config }: { config: CrudConfig }) {
       .from(config.table)
       .select('*')
       .order(config.orderBy, { ascending: true, nullsFirst: false });
-    if (error) setErr(error.message);
-    else setRows((data ?? []) as Row[]);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    setRows((data ?? []) as Row[]);
+    if (config.table === 'events' && data?.length) {
+      const ids = (data as Row[]).map((r) => r.id);
+      const { data: q } = await supabase
+        .from('notification_queue')
+        .select('id,source,source_id,title,message,topic,route,url,fire_at,status,sent_at,recipients,error')
+        .eq('source', 'event')
+        .in('source_id', ids)
+        .order('created_at', { ascending: true });
+      const m = new Map<string, QueueRow>();
+      for (const qr of (q as QueueRow[]) ?? []) {
+        const existing = m.get(qr.source_id!);
+        // prefer the live pending row; otherwise the latest outcome
+        if (!existing || qr.status === 'pending' || existing.status !== 'pending') {
+          m.set(qr.source_id!, qr);
+        }
+      }
+      setReminders(m);
+    }
   }, [config]);
 
   useEffect(() => {
@@ -389,6 +549,7 @@ export function CrudSection({ config }: { config: CrudConfig }) {
                   {listColumns.map((c) => (
                     <th key={c.key}>{c.label}</th>
                   ))}
+                  {config.table === 'events' && <th>Reminder (UK)</th>}
                   <th />
                 </tr>
               </thead>
@@ -400,14 +561,23 @@ export function CrudSection({ config }: { config: CrudConfig }) {
                         {c.type === 'bool' ? (
                           row[c.key] ? <span className="badge">yes</span> : 'no'
                         ) : c.type === 'datetime' && row[c.key] ? (
-                          new Date(String(row[c.key])).toLocaleString('en-GB', {
-                            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-                          })
+                          formatUk(String(row[c.key]))
                         ) : (
                           String(row[c.key] ?? '').slice(0, 60)
                         )}
                       </td>
                     ))}
+                    {config.table === 'events' && (
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        {(() => {
+                          const q = reminders.get(row.id);
+                          if (!q) return '—';
+                          if (q.status === 'pending') return formatUk(q.fire_at);
+                          if (q.status === 'sent') return <span className="ok">✓ {formatUk(q.sent_at ?? q.fire_at)}</span>;
+                          return <span className={q.status === 'canceled' ? 'note' : 'err'}>{q.status}</span>;
+                        })()}
+                      </td>
+                    )}
                     <td className="row-actions">
                       <button className="btn small secondary" onClick={() => setEditing(row)}>Edit</button>
                       <button className="btn small danger" onClick={() => remove(row)}>Delete</button>
