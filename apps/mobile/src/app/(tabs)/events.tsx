@@ -4,9 +4,7 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { PosterImage } from '@/components/ui/poster-image';
 import { ScreenTitle } from '@/components/ui/section-card';
-import { mediaUrl } from '@/features/home/queries';
 import { useAppConfig } from '@/features/prayer-times/config';
 import { useEvents, type WcmEvent } from '@/features/content/queries';
 import { colors, radii, spacing } from '@/theme/tokens';
@@ -29,15 +27,7 @@ function EventCard({ event }: { event: WcmEvent }) {
       style={({ pressed }) => [styles.eventCard, pressed && styles.pressed]}
       onPress={() => router.push(`/event/${event.id}` as never)}
     >
-      {event.image_path ? (
-        <PosterImage
-          uri={mediaUrl(event.image_path)}
-          // portrait posters show (almost) fully; extreme formats get capped
-          minRatio={0.72}
-          style={styles.eventImage}
-          label={`${event.title} poster`}
-        />
-      ) : null}
+      {/* posters live on the event detail page — the list stays compact */}
       <View style={styles.eventBody}>
         <View style={styles.dateBox}>
           <Text style={styles.dateDay}>{day}</Text>
@@ -166,7 +156,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: 'hidden',
   },
-  eventImage: { backgroundColor: colors.border },
   eventBody: { flexDirection: 'row', padding: spacing.md, gap: spacing.md },
   // prototype .event-date-box: 50px wide, top-aligned, day 22 / month 11
   dateBox: {
