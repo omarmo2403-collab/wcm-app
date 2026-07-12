@@ -33,6 +33,7 @@ jobs:
           cp apps/mobile/dist/index.html apps/mobile/dist/404.html
           cp -r apps/admin/dist apps/mobile/dist/admin
           cp -r prototype apps/mobile/dist/prototype
+          cp docs/privacy.html apps/mobile/dist/privacy.html
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
