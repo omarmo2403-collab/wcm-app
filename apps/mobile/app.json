@@ -41,7 +41,7 @@
       [
         "onesignal-expo-plugin",
         {
-          "mode": "development",
+          "mode": "production",
           "smallIcons": [
             "./assets/images/notification-icon.png"
           ],
