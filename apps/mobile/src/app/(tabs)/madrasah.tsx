@@ -13,7 +13,9 @@ export default function MadrasahScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <ScreenTitle>Madrasah</ScreenTitle>
+      <View style={styles.titleWrap}>
+        <ScreenTitle>Madrasah</ScreenTitle>
+      </View>
       <SectionCard style={styles.first}>
         <Text style={styles.intro}>
           Wembley Central Masjid Madrassah offers beginner through advanced classes in various
@@ -58,7 +60,9 @@ export default function MadrasahScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBackground },
   content: { paddingBottom: spacing.xl },
-  first: { marginTop: spacing.lg },
+  // aligns the title with the cards' left edge (cards self-inset by spacing.lg)
+  titleWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+  first: { marginTop: 0 },
   intro: { fontSize: 14, color: colors.text, lineHeight: 21 },
   body: { fontSize: 13, color: colors.textSecondary, lineHeight: 19, marginBottom: spacing.md },
 
