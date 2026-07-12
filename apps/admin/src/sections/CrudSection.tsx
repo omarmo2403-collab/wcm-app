@@ -51,6 +51,7 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
     columns: [
       { key: 'title', label: 'Title', type: 'text' },
       { key: 'body', label: 'Body', type: 'textarea', listHidden: true },
+      { key: 'image_path', label: 'Image (optional)', type: 'image', listHidden: true },
       { key: 'published_at', label: 'Published at', type: 'datetime' },
       { key: 'is_published', label: 'Published', type: 'bool' },
     ],

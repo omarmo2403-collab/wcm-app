@@ -1,8 +1,10 @@
+import { Image } from 'expo-image';
 import Stack from 'expo-router/stack';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 
+import { mediaUrl } from '@/features/home/queries';
 import { supabase } from '@/lib/supabase';
 import { colors, radii, spacing } from '@/theme/tokens';
 
@@ -10,6 +12,7 @@ const newsSchema = z.object({
   id: z.string(),
   title: z.string(),
   body: z.string(),
+  image_path: z.string().nullable(),
   published_at: z.string().nullable(),
 });
 
@@ -20,7 +23,7 @@ function useNews() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('news')
-        .select('id,title,body,published_at')
+        .select('id,title,body,image_path,published_at')
         .eq('is_published', true)
         .order('published_at', { ascending: false })
         .limit(30);
@@ -59,6 +62,14 @@ export default function NewsScreen() {
         onRefresh={() => news.refetch()}
         renderItem={({ item }) => (
           <View style={styles.card}>
+            {item.image_path ? (
+              <Image
+                source={mediaUrl(item.image_path)}
+                style={styles.image}
+                contentFit="cover"
+                accessibilityLabel={item.title}
+              />
+            ) : null}
             <Text style={styles.title}>{item.title}</Text>
             <Text style={styles.body}>{item.body}</Text>
             {item.published_at && (
@@ -85,6 +96,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+  },
+  image: {
+    height: 170,
+    borderRadius: radii.input,
+    marginBottom: spacing.md,
+    backgroundColor: colors.border,
   },
   title: { fontSize: 15, fontWeight: '700', color: colors.text },
   body: { fontSize: 13, color: colors.textSecondary, lineHeight: 19, marginTop: spacing.xs },

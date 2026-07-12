@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenTitle } from '@/components/ui/section-card';
+import { mediaUrl } from '@/features/home/queries';
 import { useAppConfig } from '@/features/prayer-times/config';
 import { useEvents, type WcmEvent } from '@/features/content/queries';
 import { colors, radii, spacing } from '@/theme/tokens';
@@ -24,22 +26,32 @@ function EventCard({ event }: { event: WcmEvent }) {
       style={({ pressed }) => [styles.eventCard, pressed && styles.pressed]}
       onPress={() => router.push(`/event/${event.id}` as never)}
     >
-      <View style={styles.dateBox}>
-        <Text style={styles.dateDay}>{day}</Text>
-        <Text style={styles.dateMonth}>{month}</Text>
-      </View>
-      <View style={styles.eventInfo}>
-        <Text style={styles.eventTitle}>{event.title}</Text>
-        {event.description ? (
-          <Text style={styles.eventDesc} numberOfLines={3}>
-            {event.description}
-          </Text>
-        ) : null}
-        <View style={styles.eventTimeRow}>
-          <Ionicons name="time-outline" size={13} color={colors.primary} />
-          <Text style={styles.eventTime}>
-            {weekday} | {time}
-          </Text>
+      {event.image_path ? (
+        <Image
+          source={mediaUrl(event.image_path)}
+          style={styles.eventImage}
+          contentFit="cover"
+          accessibilityLabel={`${event.title} poster`}
+        />
+      ) : null}
+      <View style={styles.eventBody}>
+        <View style={styles.dateBox}>
+          <Text style={styles.dateDay}>{day}</Text>
+          <Text style={styles.dateMonth}>{month}</Text>
+        </View>
+        <View style={styles.eventInfo}>
+          <Text style={styles.eventTitle}>{event.title}</Text>
+          {event.description ? (
+            <Text style={styles.eventDesc} numberOfLines={3}>
+              {event.description}
+            </Text>
+          ) : null}
+          <View style={styles.eventTimeRow}>
+            <Ionicons name="time-outline" size={13} color={colors.primary} />
+            <Text style={styles.eventTime}>
+              {weekday} | {time}
+            </Text>
+          </View>
         </View>
       </View>
     </Pressable>
@@ -143,15 +155,15 @@ const styles = StyleSheet.create({
   liveCta: { fontSize: 12.5, color: '#fff', fontWeight: '600', marginTop: 3 },
 
   eventCard: {
-    flexDirection: 'row',
     backgroundColor: colors.cardBackground,
     borderRadius: radii.card,
-    padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    gap: spacing.md,
+    overflow: 'hidden',
   },
+  eventImage: { height: 160, backgroundColor: colors.border },
+  eventBody: { flexDirection: 'row', padding: spacing.md, gap: spacing.md },
   // prototype .event-date-box: 50px wide, top-aligned, day 22 / month 11
   dateBox: {
     width: 50,

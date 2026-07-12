@@ -383,8 +383,8 @@ const styles = StyleSheet.create({
 
   mediaSection: { marginTop: spacing.md, marginBottom: spacing.sm },
   mediaCard: {
-    width: 190,
-    height: 116,
+    width: 250,
+    height: 156,
     borderRadius: radii.card,
     overflow: 'hidden',
     backgroundColor: colors.border,
