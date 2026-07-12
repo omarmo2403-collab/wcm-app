@@ -63,7 +63,7 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "owner": "omar0057",
+    "owner": "wcm-mobileapp",
     "extra": {
       "router": {},
       "eas": {
@@ -84,7 +84,7 @@
             }
           }
         },
-        "projectId": "3c3283d0-e13b-4ff7-88a5-a3dbfb128a45"
+        "projectId": "5113e71d-baa0-4982-8518-a5046bd470ce"
       }
     }
   }
