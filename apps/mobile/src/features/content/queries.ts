@@ -66,6 +66,7 @@ const eventSchema = z.object({
   category: z.string(),
   location: z.string().nullable(),
   image_path: z.string().nullable(),
+  time_label: z.string().nullable(),
 });
 export type WcmEvent = z.infer<typeof eventSchema>;
 
@@ -79,7 +80,7 @@ export function useEvents() {
       // parking guidance matters most on the day itself.
       const { data, error } = await supabase
         .from('events')
-        .select('id,title,description,starts_at,ends_at,all_day,category,location,image_path')
+        .select('id,title,description,starts_at,ends_at,all_day,category,location,image_path,time_label')
         .eq('is_published', true)
         .gte('starts_at', londonToday(new Date()))
         .order('starts_at')
@@ -100,7 +101,7 @@ export function useEvent(id: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('events')
-        .select('id,title,description,starts_at,ends_at,all_day,category,location,image_path')
+        .select('id,title,description,starts_at,ends_at,all_day,category,location,image_path,time_label')
         .eq('is_published', true)
         .eq('id', id!)
         .maybeSingle();

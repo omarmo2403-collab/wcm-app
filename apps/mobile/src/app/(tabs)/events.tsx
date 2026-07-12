@@ -17,9 +17,12 @@ function EventCard({ event }: { event: WcmEvent }) {
   const day = d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: '2-digit' });
   const month = d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', month: 'short' });
   const weekday = d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', weekday: 'long' });
-  const time = event.all_day
-    ? 'All Day'
-    : d.toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: 'numeric', minute: '2-digit' });
+  // custom label ("After Maghrib Salah") beats clock time beats "All Day"
+  const time = event.time_label
+    ? event.time_label
+    : event.all_day
+      ? 'All Day'
+      : d.toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: 'numeric', minute: '2-digit' });
 
   return (
     <Pressable

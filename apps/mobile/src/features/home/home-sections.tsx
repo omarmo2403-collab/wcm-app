@@ -271,7 +271,12 @@ export function BannerCarousel() {
 
 /* ---------- Photos & videos strip (admin "Home Media", below banners) ---------- */
 
+const MEDIA_CARD_HEIGHT = 190;
+
 function MediaCard({ item, onOpenPhoto }: { item: MediaItem; onOpenPhoto: () => void }) {
+  // width follows the image's real shape at fixed height, so posters show
+  // in full — never cropped (16:9 until the image reports its size)
+  const [ratio, setRatio] = useState(16 / 9);
   const yt = item.video_url ? youtubeId(item.video_url) : null;
   const thumb = item.storage_path
     ? mediaUrl(item.storage_path)
@@ -286,13 +291,25 @@ function MediaCard({ item, onOpenPhoto }: { item: MediaItem; onOpenPhoto: () => 
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.mediaCard, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.mediaCard,
+        { width: Math.round(MEDIA_CARD_HEIGHT * ratio) },
+        pressed && styles.pressed,
+      ]}
       onPress={open}
       accessibilityRole="button"
       accessibilityLabel={item.caption || (item.video_url ? 'Play video' : 'View photo')}
     >
       {thumb ? (
-        <Image source={thumb} style={StyleSheet.absoluteFill} contentFit="cover" />
+        <Image
+          source={thumb}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          onLoad={(e) => {
+            const { width, height } = e.source;
+            if (width > 0 && height > 0) setRatio(width / height);
+          }}
+        />
       ) : (
         <LinearGradient colors={['#1B1B1B', '#444']} style={StyleSheet.absoluteFill} />
       )}
@@ -383,8 +400,7 @@ const styles = StyleSheet.create({
 
   mediaSection: { marginTop: spacing.md, marginBottom: spacing.sm },
   mediaCard: {
-    width: 250,
-    height: 156,
+    height: MEDIA_CARD_HEIGHT,
     borderRadius: radii.card,
     overflow: 'hidden',
     backgroundColor: colors.border,

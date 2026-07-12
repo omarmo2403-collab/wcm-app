@@ -33,6 +33,7 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
       { key: 'description', label: 'Description', type: 'textarea', listHidden: true },
       { key: 'starts_at', label: 'Starts', type: 'datetime' },
       { key: 'all_day', label: 'All day', type: 'bool' },
+      { key: 'time_label', label: 'Time/venue note (e.g. "After Maghrib Salah") — shown instead of the clock time', type: 'text', listHidden: true },
       {
         key: 'category',
         label: 'Category',

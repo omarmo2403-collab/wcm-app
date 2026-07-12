@@ -101,6 +101,9 @@ function validateRow(r: ParsedRow): string | undefined {
   if (!r.message.trim()) return 'message is empty';
   if (r.message.length > 178) return `message too long (${r.message.length}/178 characters)`;
   if (Date.parse(ukToIso(r.date, r.time)) < Date.now() + 60_000) return 'time is in the past';
+  if (Date.parse(ukToIso(r.date, r.time)) > Date.now() + 30 * 24 * 3600 * 1000) {
+    return 'more than 30 days ahead — OneSignal cannot schedule that far (event-day reminders are automatic)';
+  }
   return undefined;
 }
 
@@ -420,7 +423,9 @@ export function SchedulePush() {
         <h3>Waiting to send ({scheduled.length})</h3>
         <p className="note">
           Every scheduled notification, whichever section created it. Check the audience and where
-          a tap takes people — cancel anything that looks wrong.
+          a tap takes people — cancel anything that looks wrong. Note: <strong>event-day reminders
+          are automatic</strong> — every published event gets a push at 5pm UK on its day (deep-linked
+          to the event page), so they never appear here and need no scheduling.
         </p>
         {scheduled.length === 0 ? (
           <p className="note">Nothing scheduled yet.</p>

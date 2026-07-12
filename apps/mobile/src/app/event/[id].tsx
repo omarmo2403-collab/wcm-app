@@ -34,7 +34,11 @@ export default function EventDetailScreen() {
 
   const starts = new Date(event.starts_at);
   const when = `${starts.toLocaleDateString('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long' })}${
-    event.all_day ? ' (all day)' : ` at ${starts.toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: 'numeric', minute: '2-digit' })}`
+    event.time_label
+      ? ` — ${event.time_label}`
+      : event.all_day
+        ? ' (all day)'
+        : ` at ${starts.toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: 'numeric', minute: '2-digit' })}`
   }`;
 
   const share = () =>

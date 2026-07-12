@@ -130,7 +130,14 @@ Deno.serve(async (req) => {
     const t = Date.parse(String(send_after));
     if (Number.isNaN(t)) return json({ error: 'invalid send_after' }, 400);
     if (t < Date.now() + 60_000) return json({ error: 'send_after must be in the future' }, 400);
-    if (t > Date.now() + 366 * 24 * 3600 * 1000) return json({ error: 'send_after too far ahead' }, 400);
+    // OneSignal rejects schedules beyond ~30 days ("may not be scheduled so
+    // far in the future") — fail early with a clear message
+    if (t > Date.now() + 30 * 24 * 3600 * 1000) {
+      return json({
+        error: 'send_after too far ahead',
+        message: 'Notifications can only be scheduled up to 30 days ahead. Event-day reminders are sent automatically at 5pm UK, so recurring events need no scheduling.',
+      }, 400);
+    }
     sendAfter = new Date(t).toISOString();
 
     // duplicate guard: refuse a second notification to the SAME topic in the
