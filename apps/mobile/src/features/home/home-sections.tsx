@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -18,6 +19,17 @@ import {
 import { colors, radii, spacing } from '@/theme/tokens';
 import { mediaUrl, useBanners, useHomeMedia, useNotices, type Banner, type MediaItem } from './queries';
 import { useUi } from '@/stores/ui';
+
+/** Open an external link. YouTube (and any https link) goes through the OS so
+ *  the right APP opens — MIUI's browser mishandles the in-app custom tab that
+ *  WebBrowser uses, which left video taps doing nothing. Scheme-less pastes
+ *  from the admin ("www.youtube.com/…") are normalised too. */
+export function openExternal(url: string): void {
+  const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+  Linking.openURL(href).catch(() =>
+    WebBrowser.openBrowserAsync(href).catch(() => {}),
+  );
+}
 
 /* ---------- Quick actions (prototype .quick-actions) ---------- */
 
@@ -63,7 +75,7 @@ export function NoticeStrip() {
     if (notice.action_type === 'screen' && notice.action_target) {
       router.push(notice.action_target.replace('/more', '') as never);
     } else if (notice.action_type === 'url' && notice.action_target) {
-      WebBrowser.openBrowserAsync(notice.action_target);
+      openExternal(notice.action_target);
     }
   };
 
@@ -130,11 +142,11 @@ function BannerCard({ banner, width, index }: { banner: Banner; width: number; i
   const router = useRouter();
   const open = () => {
     if (banner.video_url) {
-      WebBrowser.openBrowserAsync(banner.video_url);
+      openExternal(banner.video_url);
     } else if (banner.action_type === 'screen' && banner.action_target) {
       router.push(banner.action_target as never);
     } else if (banner.action_type === 'url' && banner.action_target) {
-      WebBrowser.openBrowserAsync(banner.action_target);
+      openExternal(banner.action_target);
     }
   };
 
@@ -267,7 +279,7 @@ function MediaCard({ item }: { item: MediaItem }) {
       : null;
   const open = () => {
     const target = item.video_url ?? (item.storage_path ? mediaUrl(item.storage_path) : null);
-    if (target) WebBrowser.openBrowserAsync(target);
+    if (target) openExternal(target);
   };
 
   return (
