@@ -3,11 +3,11 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 const ONESIGNAL_APP_ID = '36591c9d-0098-4d2b-bad5-d240719d9285';
 
 /**
- * Daily event-day dispatcher (invoked by pg_cron at 16:00 UTC ≈ 17:00 UK):
- * sends one push per PUBLISHED event happening today (Europe/London), deep-
- * linked to the event page. Runs server-side forever — unlike OneSignal
- * send_after, which caps scheduling at ~30 days, this covers a whole season
- * of recurring lectures with zero staff effort.
+ * Hourly event-reminder dispatcher (pg_cron, minute 5): sends a push for
+ * every published event whose reminder time (events.notify_at — defaulted to
+ * 2h before start, or 9am UK for all-day events, admin-overridable) has
+ * arrived and which hasn't been notified yet. notified_at stamps make it
+ * idempotent. Server-side because OneSignal cannot schedule >30 days ahead.
  *
  * Stadium-day events are skipped: the Stadium Days importer schedules those
  * on the stadium topic with the /stadium deep link already.
@@ -23,14 +23,16 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  const now = new Date();
   const { data: events, error } = await supabase
     .from('events')
     .select('id,title,time_label,all_day,starts_at')
     .eq('is_published', true)
     .neq('category', 'stadium')
-    .gte('starts_at', `${today}T00:00:00+01:00`)
-    .lt('starts_at', `${today}T23:59:59+01:00`);
+    .is('notified_at', null)
+    .lte('notify_at', now.toISOString())
+    // never notify for events already well in the past (e.g. old rows)
+    .gte('starts_at', new Date(now.getTime() - 6 * 3600 * 1000).toISOString());
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
 
   const key = Deno.env.get('ONESIGNAL_REST_API_KEY');
@@ -57,9 +59,12 @@ Deno.serve(async (req) => {
       }),
     });
     const out = await resp.json().catch(() => ({}));
+    if (resp.ok) {
+      await supabase.from('events').update({ notified_at: now.toISOString() }).eq('id', ev.id);
+    }
     results.push({ event: ev.title, ok: resp.ok, id: out.id ?? null });
   }
-  return new Response(JSON.stringify({ ok: true, date: today, sent: results }), {
+  return new Response(JSON.stringify({ ok: true, sent: results }), {
     headers: { 'Content-Type': 'application/json' },
   });
 });

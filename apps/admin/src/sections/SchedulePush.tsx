@@ -423,9 +423,10 @@ export function SchedulePush() {
         <h3>Waiting to send ({scheduled.length})</h3>
         <p className="note">
           Every scheduled notification, whichever section created it. Check the audience and where
-          a tap takes people — cancel anything that looks wrong. Note: <strong>event-day reminders
-          are automatic</strong> — every published event gets a push at 5pm UK on its day (deep-linked
-          to the event page), so they never appear here and need no scheduling.
+          a tap takes people — cancel anything that looks wrong. Note: <strong>event reminders
+          are automatic</strong> — every published event gets a push at its reminder time (set per
+          event; defaults to 2 hours before start, or 9am for all-day events), deep-linked to the
+          event page. They never appear here and need no scheduling.
         </p>
         {scheduled.length === 0 ? (
           <p className="note">Nothing scheduled yet.</p>

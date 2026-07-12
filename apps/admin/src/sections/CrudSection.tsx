@@ -34,6 +34,7 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
       { key: 'starts_at', label: 'Starts', type: 'datetime' },
       { key: 'all_day', label: 'All day', type: 'bool' },
       { key: 'time_label', label: 'Time/venue note (e.g. "After Maghrib Salah") — shown instead of the clock time', type: 'text', listHidden: true },
+      { key: 'notify_at', label: 'Reminder time (blank = automatic: 2h before start, or 9am for all-day events)', type: 'datetime', listHidden: true },
       {
         key: 'category',
         label: 'Category',
