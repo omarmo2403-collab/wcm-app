@@ -50,12 +50,15 @@ export default function EventsScreen() {
   const events = useEvents();
   const config = useAppConfig();
   const liveUrl = typeof config.data?.live_events_url === 'string' ? config.data.live_events_url : null;
+  // stadium event days have their own screen (Stadium Event Days) — the
+  // events list is for the masjid's own programmes only
+  const listed = (events.data ?? []).filter((e) => e.category !== 'stadium');
 
   return (
     <FlatList
       style={styles.screen}
       contentContainerStyle={styles.content}
-      data={events.data ?? []}
+      data={listed}
       keyExtractor={(e) => e.id}
       ListHeaderComponent={
         <>
