@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 
-import { callSendPush, supabase } from '../lib/supabase';
-import { destinationLabel, TOPIC_LABELS, type ScheduledItem } from '../lib/push';
+import {
+  cancelRow, insertQueued, listUpcoming, SOURCE_LABELS, TOPIC_LABELS,
+  type NewQueueRow, type QueueRow,
+} from '../lib/queue';
+import { supabase } from '../lib/supabase';
+import { formatUk, ukToIso } from '../lib/uktime';
 
 /**
  * Bulk-schedule notifications from a filled-in template (Excel/CSV/Word
@@ -38,21 +42,12 @@ const APP_SCREENS = [
   { route: '/news', label: 'News screen' },
 ];
 
-/** UK wall time -> UTC ISO (handles BST/GMT) */
-function ukToIso(date: string, time: string): string {
-  const [y, mo, d] = date.split('-').map(Number);
-  const [h, mi] = time.split(':').map(Number);
-  const guess = Date.UTC(y!, mo! - 1, d!, h!, mi!);
-  const fmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: 'numeric', hourCycle: 'h23' });
-  const offset = (Number(fmt.format(new Date(guess))) - h! + 24) % 24;
-  return new Date(guess - offset * 3600 * 1000).toISOString();
-}
-
-function formatUk(unixSeconds: number): string {
-  return new Date(unixSeconds * 1000).toLocaleString('en-GB', {
-    timeZone: 'Europe/London',
-    weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
-  });
+/** Where a tap takes the phone — for the Waiting-to-send table. */
+function tapOpens(r: QueueRow): string {
+  if (r.route?.startsWith('/event/')) return 'event page';
+  if (r.route) return `app screen ${r.route}`;
+  if (r.url) return `web: ${r.url.slice(0, 40)}`;
+  return 'the app';
 }
 
 /** normalise an Excel cell that might be a date/time serial or text */
@@ -101,9 +96,6 @@ function validateRow(r: ParsedRow): string | undefined {
   if (!r.message.trim()) return 'message is empty';
   if (r.message.length > 178) return `message too long (${r.message.length}/178 characters)`;
   if (Date.parse(ukToIso(r.date, r.time)) < Date.now() + 60_000) return 'time is in the past';
-  if (Date.parse(ukToIso(r.date, r.time)) > Date.now() + 30 * 24 * 3600 * 1000) {
-    return 'more than 30 days ahead — OneSignal cannot schedule that far (event-day reminders are automatic)';
-  }
   return undefined;
 }
 
@@ -218,13 +210,12 @@ export function SchedulePush() {
   const [fileName, setFileName] = useState('');
   const [status, setStatus] = useState('');
   const [sending, setSending] = useState(false);
-  const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
+  const [scheduled, setScheduled] = useState<QueueRow[]>([]);
   const [events, setEvents] = useState<EventOption[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refreshScheduled = useCallback(async () => {
-    const res = await callSendPush({ action: 'list_scheduled' });
-    if (res.ok) setScheduled((res.scheduled as ScheduledItem[]) ?? []);
+    setScheduled(await listUpcoming());
   }, []);
 
   useEffect(() => {
@@ -281,41 +272,34 @@ export function SchedulePush() {
     const valid = rows.filter((r) => !r.error);
     if (!window.confirm(`Schedule ${valid.length} notification(s)? Each fires automatically at its UK time.`)) return;
     setSending(true);
-    let ok = 0;
-    let skipped = 0;
-    const failedRows: ParsedRow[] = [];
-    for (const r of valid) {
-      const res = await callSendPush({
-        title: r.title,
-        message: r.message,
-        topic: r.topic,
-        send_after: ukToIso(r.date, r.time),
-        // in-app screen takes precedence over a web URL
-        ...(r.route ? { route: r.route } : r.link ? { url: r.link } : {}),
-      });
-      if (res.ok) ok++;
-      else if (res.error === 'duplicate_scheduled') skipped++;
-      else failedRows.push({ ...r, error: `failed: ${typeof res.message === 'string' ? res.message : JSON.stringify(res.errors)}` });
-    }
+    const queued: NewQueueRow[] = valid.map((r) => ({
+      source: 'template' as const,
+      title: r.title,
+      message: r.message,
+      topic: r.topic,
+      fire_at: ukToIso(r.date, r.time),
+      // in-app screen takes precedence over a web URL
+      ...(r.route ? { route: r.route } : r.link ? { url: r.link } : {}),
+    }));
+    const res = await insertQueued(queued);
     setSending(false);
     setStatus(
-      `Scheduled ${ok}/${valid.length} ✓` +
-      (skipped ? ` — ${skipped} skipped (same audience already scheduled at that time)` : '') +
-      (failedRows.length ? ` — ${failedRows.length} failed (kept below; fix and press Schedule again)` : ''),
+      `Scheduled ${res.ok}/${valid.length} ✓` +
+      (res.duplicates ? ` — ${res.duplicates} skipped (same audience already scheduled at that time)` : '') +
+      (res.failures.length ? ` — failed: ${res.failures.join('; ')}` : ''),
     );
-    // keep failed + invalid rows so a partial failure never loses track of
-    // which notifications still need scheduling or fixing
-    const leftover = [...failedRows, ...rows.filter((r) => r.error)];
+    // keep invalid rows so fixable problems never vanish silently
+    const leftover = rows.filter((r) => r.error);
     setRows(leftover);
     if (leftover.length === 0) setFileName('');
     refreshScheduled();
   };
 
-  const cancel = async (item: ScheduledItem) => {
-    if (!window.confirm(`Cancel "${item.title}" (${formatUk(item.send_after)})?`)) return;
-    const res = await callSendPush({ action: 'cancel', id: item.id });
-    if (res.ok) refreshScheduled();
-    else window.alert(`Could not cancel: ${JSON.stringify(res.errors ?? res)}`);
+  const cancel = async (item: QueueRow) => {
+    if (!window.confirm(`Cancel "${item.title}" (${formatUk(item.fire_at)} UK)?`)) return;
+    const e = await cancelRow(item.id);
+    if (e) window.alert(`Could not cancel: ${e}`);
+    else refreshScheduled();
   };
 
   const validCount = rows.filter((r) => !r.error).length;
@@ -422,32 +406,30 @@ export function SchedulePush() {
       <div className="card" style={{ maxWidth: 720 }}>
         <h3>Waiting to send ({scheduled.length})</h3>
         <p className="note">
-          Every scheduled notification, whichever section created it. Check the audience and where
-          a tap takes people — cancel anything that looks wrong. Note: <strong>event reminders
-          are automatic</strong> — every published event gets a push at its reminder time (set per
-          event; defaults to 2 hours before start, or 9am for all-day events), deep-linked to the
-          event page. They never appear here and need no scheduling.
+          Everything waiting to send, whichever section created it — including automatic event
+          reminders (every published event pushes at its reminder time, deep-linked to its page;
+          no scheduling needed). Check the audience and where a tap takes people — cancel anything
+          that looks wrong. The Notifications section shows this same list plus the 30-day history.
         </p>
         {scheduled.length === 0 ? (
           <p className="note">Nothing scheduled yet.</p>
         ) : (
           <table className="grid" style={{ marginTop: 8 }}>
             <thead>
-              <tr><th>When (UK)</th><th>Audience</th><th>Title</th><th>Message</th><th>Tap opens</th><th></th></tr>
+              <tr><th>When (UK)</th><th>Audience</th><th>Title</th><th>Message</th><th>Tap opens</th><th>Source</th><th></th></tr>
             </thead>
             <tbody>
-              {scheduled
-                .sort((a, b) => a.send_after - b.send_after)
-                .map((s) => (
-                  <tr key={s.id}>
-                    <td style={{ whiteSpace: 'nowrap' }}>{formatUk(s.send_after)}</td>
-                    <td>{(s.topic && TOPIC_LABELS[s.topic]) ?? s.topic ?? '?'}</td>
-                    <td>{s.title.slice(0, 40)}</td>
-                    <td>{s.message.slice(0, 60)}</td>
-                    <td>{destinationLabel(s, events).replace(/^opens /, '')}</td>
-                    <td><button className="btn secondary" onClick={() => cancel(s)}>Cancel</button></td>
-                  </tr>
-                ))}
+              {scheduled.map((s) => (
+                <tr key={s.id}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{formatUk(s.fire_at)}</td>
+                  <td>{TOPIC_LABELS[s.topic] ?? s.topic}</td>
+                  <td>{s.title.slice(0, 40)}</td>
+                  <td>{s.message.slice(0, 60)}</td>
+                  <td>{tapOpens(s)}</td>
+                  <td>{SOURCE_LABELS[s.source]}</td>
+                  <td><button className="btn secondary" onClick={() => cancel(s)}>Cancel</button></td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
