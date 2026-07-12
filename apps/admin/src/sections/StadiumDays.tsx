@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 
-import { callSendPush, supabase } from '../lib/supabase';
+import { insertQueued } from '../lib/queue';
+import { supabase } from '../lib/supabase';
+import { ukToIso } from '../lib/uktime';
 
 /**
  * Import Wembley Stadium event days from the flyer the committee circulates
@@ -27,16 +29,6 @@ interface ParsedDay {
 interface StadiumDay {
   id: string;
   date: string;
-}
-
-/** UK wall time -> UTC ISO (handles BST/GMT) */
-function ukToIso(date: string, time: string): string {
-  const [y, mo, d] = date.split('-').map(Number);
-  const [h, mi] = time.split(':').map(Number);
-  const guess = Date.UTC(y!, mo! - 1, d!, h!, mi!);
-  const fmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: 'numeric', hourCycle: 'h23' });
-  const offset = (Number(fmt.format(new Date(guess))) - h! + 24) % 24;
-  return new Date(guess - offset * 3600 * 1000).toISOString();
 }
 
 function weekdayOf(date: string): string {
@@ -236,28 +228,36 @@ export function StadiumDays() {
 
       let scheduled = 0;
       let skipped = 0;
-      const failures: string[] = [];
+      let failures: string[] = [];
       if (notify) {
-        for (const d of days) {
-          const sendAfter = ukToIso(d.date, notifyTime);
-          if (Date.parse(sendAfter) < Date.now() + 60_000) continue; // day already passed
-          const res = await callSendPush({
+        // replace this month's pending stadium notifications along with the days
+        for (const w of windows) {
+          await supabase.from('notification_queue').delete()
+            .eq('source', 'stadium').eq('status', 'pending')
+            .gte('fire_at', ukToIso(w.from, '00:00'))
+            .lt('fire_at', ukToIso(w.to, '00:00'));
+        }
+        const rows = days
+          .map((d) => ukToIso(d.date, notifyTime))
+          .filter((iso) => Date.parse(iso) > Date.now() + 60_000) // day already passed
+          .map((iso) => ({
+            source: 'stadium' as const,
             title: 'Stadium Event Day at Wembley',
             message:
               'Expect parking restrictions and heavy traffic around the Masjid today. Please plan ahead or use public transport.',
             topic: 'stadium',
             route: '/stadium',
-            send_after: sendAfter,
-          });
-          if (res.ok) scheduled++;
-          else if (res.error === 'duplicate_scheduled') skipped++;
-          else failures.push(d.date);
-        }
+            fire_at: iso,
+          }));
+        const res = await insertQueued(rows);
+        scheduled = res.ok;
+        skipped = res.duplicates;
+        failures = res.failures;
       }
       setStatus(
         `Saved ${days.length} stadium day(s) for ${monthNames} ✓` +
         (notify
-          ? ` — ${scheduled} notification(s) scheduled${skipped ? `, ${skipped} already scheduled (skipped)` : ''}${failures.length ? `, failed for: ${failures.join(', ')}` : ''}`
+          ? ` — ${scheduled} notification(s) scheduled${skipped ? `, ${skipped} already scheduled (skipped)` : ''}${failures.length ? `, failed: ${failures.join('; ')}` : ''}`
           : ''),
       );
       setDays([]);
@@ -339,8 +339,8 @@ export function StadiumDays() {
             </label>
             <p className="note" style={{ marginTop: 4 }}>
               Sent to everyone subscribed to Stadium notifications; tapping opens the stadium screen
-              in the app. Re-uploading does not cancel previously scheduled notifications — check
-              the Scheduled Notifications section if you upload twice.
+              in the app. Re-uploading a month replaces its scheduled notifications too — nothing is
+              double-sent. Everything queued is visible in the Notifications section.
             </p>
 
             <div style={{ marginTop: 12 }}>
