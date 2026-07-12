@@ -2,5 +2,6 @@ packages:
   - apps/*
   - packages/*
 allowBuilds:
-  '@sentry/cli': set this to true or false
+  # sentry-cli binary is only for source-map uploads, which we don't do yet
+  '@sentry/cli': false
   esbuild: true
