@@ -7,7 +7,11 @@ import { AppState, Platform } from 'react-native';
 
 import { AppErrorBoundary } from '@/components/error-boundary';
 import { NotificationSync } from '@/features/notifications/notification-sync';
+import { initSentry } from '@/lib/sentry';
 import { colors } from '@/theme/tokens';
+
+// crash reporting first — everything after this is covered
+initSentry();
 
 SplashScreen.preventAutoHideAsync();
 

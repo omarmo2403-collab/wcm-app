@@ -1,5 +1,7 @@
-import { Component, type ReactNode } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text } from 'react-native';
+
+import { captureError } from '@/lib/sentry';
 
 interface State {
   error: Error | null;
@@ -15,6 +17,10 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, State> 
 
   static getDerivedStateFromError(error: Error): State {
     return { error };
+  }
+
+  override componentDidCatch(error: Error, _info: ErrorInfo): void {
+    captureError(error);
   }
 
   override render() {

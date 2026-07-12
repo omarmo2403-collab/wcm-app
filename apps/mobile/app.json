@@ -22,7 +22,9 @@
       },
       "predictiveBackGestureEnabled": false,
       "googleServicesFile": "./google-services.json",
-      "permissions": ["android.permission.USE_EXACT_ALARM"]
+      "permissions": [
+        "android.permission.USE_EXACT_ALARM"
+      ]
     },
     "web": {
       "output": "static",
@@ -61,11 +63,28 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "owner": "wcm-mobileapp",
+    "owner": "omar0057",
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "5113e71d-baa0-4982-8518-a5046bd470ce"
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "OneSignalNotificationServiceExtension",
+                  "bundleIdentifier": "com.afomsolutions.wcm.OneSignalNotificationServiceExtension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.afomsolutions.wcm.onesignal"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "3c3283d0-e13b-4ff7-88a5-a3dbfb128a45"
       }
     }
   }
