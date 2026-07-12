@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { PosterImage } from '@/components/ui/poster-image';
 import { ScreenTitle } from '@/components/ui/section-card';
 import { mediaUrl } from '@/features/home/queries';
 import { useAppConfig } from '@/features/prayer-times/config';
@@ -27,11 +27,12 @@ function EventCard({ event }: { event: WcmEvent }) {
       onPress={() => router.push(`/event/${event.id}` as never)}
     >
       {event.image_path ? (
-        <Image
-          source={mediaUrl(event.image_path)}
+        <PosterImage
+          uri={mediaUrl(event.image_path)}
+          // portrait posters show (almost) fully; extreme formats get capped
+          minRatio={0.72}
           style={styles.eventImage}
-          contentFit="cover"
-          accessibilityLabel={`${event.title} poster`}
+          label={`${event.title} poster`}
         />
       ) : null}
       <View style={styles.eventBody}>
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: 'hidden',
   },
-  eventImage: { height: 160, backgroundColor: colors.border },
+  eventImage: { backgroundColor: colors.border },
   eventBody: { flexDirection: 'row', padding: spacing.md, gap: spacing.md },
   // prototype .event-date-box: 50px wide, top-aligned, day 22 / month 11
   dateBox: {

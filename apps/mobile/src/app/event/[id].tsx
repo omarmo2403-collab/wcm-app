@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import Stack from 'expo-router/stack';
 import { useLocalSearchParams } from 'expo-router';
 import { Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
+import { PosterImage } from '@/components/ui/poster-image';
 import { CardTitle, SectionCard } from '@/components/ui/section-card';
 import { useEvent } from '@/features/content/queries';
 import { mediaUrl } from '@/features/home/queries';
@@ -55,11 +55,10 @@ export default function EventDetailScreen() {
         </View>
 
         {event.image_path ? (
-          <Image
-            source={mediaUrl(event.image_path)}
+          <PosterImage
+            uri={mediaUrl(event.image_path)}
             style={styles.eventImage}
-            contentFit="cover"
-            accessibilityLabel={`${event.title} poster`}
+            label={`${event.title} poster`}
           />
         ) : null}
 
@@ -91,7 +90,8 @@ const styles = StyleSheet.create({
   eventImage: {
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
-    height: 190,
+    width: undefined,
+    alignSelf: 'stretch',
     borderRadius: radii.card,
     backgroundColor: colors.border,
   },
