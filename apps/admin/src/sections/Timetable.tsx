@@ -120,6 +120,7 @@ export function Timetable() {
           title: 'Prayer time change',
           message: body,
           topic: 'prayer_times',
+          source: 'prayer_change', // tags the row in the Notifications sent log
         });
         setStatus(res.ok ? 'Saved — congregation notified ✓' : `Saved, but push failed: ${JSON.stringify(res.errors)}`);
         await load();

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import {
+  cancelRow, insertQueued, listUpcoming, SOURCE_LABELS, TOPIC_LABELS, type QueueRow,
+} from '../lib/queue';
 import { callSendPush, supabase } from '../lib/supabase';
-import { destinationLabel, TOPIC_LABELS, type ScheduledItem } from '../lib/push';
+import { formatUk, ukToIso } from '../lib/uktime';
 
 // Matches the app's three notification switches exactly — congregants who
 // turn a switch off are excluded from that topic's sends automatically
@@ -39,28 +42,15 @@ function formatEventDate(ev: EventOption): string {
 /** "2026-07-25T09:00" (UK wall time) -> UTC ISO string */
 function ukWallTimeToIso(local: string): string {
   const [d, t] = local.split('T');
-  const [y, mo, day] = d!.split('-').map(Number);
-  const [h, mi] = t!.split(':').map(Number);
-  // find the UTC instant whose Europe/London wall clock matches
-  const guess = Date.UTC(y!, mo! - 1, day!, h!, mi!);
-  const fmt = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/London',
-    hour: 'numeric',
-    hourCycle: 'h23',
-  });
-  const offset = (Number(fmt.format(new Date(guess))) - h! + 24) % 24;
-  return new Date(guess - offset * 3600 * 1000).toISOString();
+  return ukToIso(d!, t ?? '00:00');
 }
 
-function formatUk(unixSeconds: number): string {
-  return new Date(unixSeconds * 1000).toLocaleString('en-GB', {
-    timeZone: 'Europe/London',
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+/** Where a tap takes the phone — for the scheduled list. */
+function tapOpens(r: QueueRow): string {
+  if (r.route?.startsWith('/event/')) return 'opens event page';
+  if (r.route) return `opens app screen ${r.route}`;
+  if (r.url) return `opens web link: ${r.url.slice(0, 40)}`;
+  return 'opens the app';
 }
 
 export function PushComposer() {
@@ -74,12 +64,11 @@ export function PushComposer() {
   const [sendAt, setSendAt] = useState(''); // datetime-local, UK wall time
   const [status, setStatus] = useState('');
   const [sending, setSending] = useState(false);
-  const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
+  const [scheduled, setScheduled] = useState<QueueRow[]>([]);
   const [events, setEvents] = useState<EventOption[]>([]);
 
   const refreshScheduled = useCallback(async () => {
-    const res = await callSendPush({ action: 'list_scheduled' });
-    if (res.ok) setScheduled((res.scheduled as ScheduledItem[]) ?? []);
+    setScheduled(await listUpcoming());
   }, []);
 
   useEffect(() => {
@@ -108,26 +97,42 @@ export function PushComposer() {
   const effectiveTopic = kind === 'event' ? 'events' : topic;
 
   const send = async () => {
-    const when = sendAt ? formatUk(Date.parse(ukWallTimeToIso(sendAt)) / 1000) : 'now';
+    const when = sendAt ? formatUk(ukWallTimeToIso(sendAt)) : 'now';
     if (!window.confirm(`Send this notification to everyone subscribed to "${effectiveTopic}" — ${sendAt ? `scheduled for ${when} (UK time)` : 'immediately'}?`)) return;
     setSending(true);
     setStatus('Sending…');
     const link = url.trim();
-    const res = await callSendPush({
-      title,
-      message,
-      topic: effectiveTopic,
-      // event notifications carry an in-app route; the app opens the event
-      // page when the notification is tapped (needs no web URL)
-      ...(kind === 'event' && deepLink && eventId ? { route: `/event/${eventId}` } : {}),
-      ...(kind === 'general' && link ? { url: link } : {}),
-      ...(sendAt ? { send_after: ukWallTimeToIso(sendAt) } : {}),
-    });
-    setStatus(res.ok
-      ? (sendAt ? `Scheduled for ${when} ✓` : 'Sent ✓')
-      : `Failed: ${typeof res.message === 'string' ? res.message : JSON.stringify(res.errors)}`);
+    const route = kind === 'event' && deepLink && eventId ? `/event/${eventId}` : undefined;
+    let ok: boolean;
+    let failMsg = '';
+    if (sendAt) {
+      // scheduled: one queue row; the dispatcher sends it at fire time
+      const res = await insertQueued([{
+        source: 'composer',
+        title,
+        message,
+        topic: effectiveTopic,
+        fire_at: ukWallTimeToIso(sendAt),
+        ...(route ? { route } : kind === 'general' && link ? { url: link } : {}),
+      }]);
+      ok = res.ok === 1;
+      failMsg = res.duplicates
+        ? 'same audience already scheduled at that minute — pick another time or cancel it in Notifications'
+        : res.failures.join('; ');
+    } else {
+      const res = await callSendPush({
+        title,
+        message,
+        topic: effectiveTopic,
+        ...(route ? { route } : {}),
+        ...(kind === 'general' && link ? { url: link } : {}),
+      });
+      ok = Boolean(res.ok);
+      failMsg = typeof res.message === 'string' ? res.message : JSON.stringify(res.errors);
+    }
+    setStatus(ok ? (sendAt ? `Scheduled for ${when} ✓` : 'Sent ✓') : `Failed: ${failMsg}`);
     setSending(false);
-    if (res.ok) {
+    if (ok) {
       setTitle('');
       setMessage('');
       setUrl('');
@@ -137,11 +142,11 @@ export function PushComposer() {
     }
   };
 
-  const cancel = async (item: ScheduledItem) => {
+  const cancel = async (item: QueueRow) => {
     if (!window.confirm(`Cancel the scheduled notification "${item.title}"?`)) return;
-    const res = await callSendPush({ action: 'cancel', id: item.id });
-    if (res.ok) refreshScheduled();
-    else window.alert(`Could not cancel: ${JSON.stringify(res.errors ?? res)}`);
+    const e = await cancelRow(item.id);
+    if (e) window.alert(`Could not cancel: ${e}`);
+    else refreshScheduled();
   };
 
   const canSend = title.trim() && message.trim() && (kind === 'general' || eventId);
@@ -243,7 +248,6 @@ export function PushComposer() {
           </p>
         ) : (
           scheduled
-            .sort((a, b) => a.send_after - b.send_after)
             .map((s) => (
               <div
                 key={s.id}
@@ -262,15 +266,18 @@ export function PushComposer() {
                       marginLeft: 8, fontWeight: 600, fontSize: 11, padding: '1px 8px',
                       borderRadius: 999, background: 'rgba(21,151,120,0.1)', color: 'var(--green, #159778)',
                     }}>
-                      {(s.topic && TOPIC_LABELS[s.topic]) ?? s.topic ?? 'unknown topic'}
+                      {TOPIC_LABELS[s.topic] ?? s.topic}
+                    </span>
+                    <span style={{ marginLeft: 6, fontWeight: 400, fontSize: 11, color: 'var(--text-light)' }}>
+                      {SOURCE_LABELS[s.source]}
                     </span>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-light)' }}>{s.message}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-light)' }}>
-                    Tap: {destinationLabel(s, events)}
+                    Tap: {tapOpens(s)}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--green, #159778)', fontWeight: 600 }}>
-                    {formatUk(s.send_after)} (UK)
+                    {formatUk(s.fire_at)} (UK)
                   </div>
                 </div>
                 <button className="btn secondary" onClick={() => cancel(s)}>Cancel</button>
