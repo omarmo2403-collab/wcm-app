@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   FlatList,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -270,7 +271,7 @@ export function BannerCarousel() {
 
 /* ---------- Photos & videos strip (admin "Home Media", below banners) ---------- */
 
-function MediaCard({ item }: { item: MediaItem }) {
+function MediaCard({ item, onOpenPhoto }: { item: MediaItem; onOpenPhoto: () => void }) {
   const yt = item.video_url ? youtubeId(item.video_url) : null;
   const thumb = item.storage_path
     ? mediaUrl(item.storage_path)
@@ -278,8 +279,9 @@ function MediaCard({ item }: { item: MediaItem }) {
       ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg`
       : null;
   const open = () => {
-    const target = item.video_url ?? (item.storage_path ? mediaUrl(item.storage_path) : null);
-    if (target) openExternal(target);
+    // videos play in the YouTube app / player; photos open in-app
+    if (item.video_url) openExternal(item.video_url);
+    else if (item.storage_path) onOpenPhoto();
   };
 
   return (
@@ -312,7 +314,12 @@ function MediaCard({ item }: { item: MediaItem }) {
 
 export function MediaStrip() {
   const media = useHomeMedia();
+  const { width } = useWindowDimensions();
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   if (!media.data || media.data.length === 0) return null;
+
+  // photos open in the in-app viewer; swiping pages through photos only
+  const photos = media.data.filter((m) => !m.video_url && m.storage_path);
 
   return (
     <View style={styles.mediaSection}>
@@ -322,8 +329,51 @@ export function MediaStrip() {
         data={media.data}
         keyExtractor={(m) => m.id}
         contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
-        renderItem={({ item }) => <MediaCard item={item} />}
+        renderItem={({ item }) => (
+          <MediaCard
+            item={item}
+            onOpenPhoto={() => setViewerIndex(Math.max(0, photos.findIndex((p) => p.id === item.id)))}
+          />
+        )}
       />
+
+      <Modal
+        visible={viewerIndex !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewerIndex(null)}
+      >
+        <View style={styles.viewerBackdrop}>
+          <FlatList
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            data={photos}
+            keyExtractor={(m) => m.id}
+            initialScrollIndex={viewerIndex ?? 0}
+            getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+            renderItem={({ item }) => (
+              <View style={{ width, flex: 1, justifyContent: 'center' }}>
+                <Image
+                  source={mediaUrl(item.storage_path!)}
+                  style={styles.viewerImage}
+                  contentFit="contain"
+                />
+                {item.caption ? <Text style={styles.viewerCaption}>{item.caption}</Text> : null}
+              </View>
+            )}
+          />
+          <Pressable
+            style={styles.viewerClose}
+            onPress={() => setViewerIndex(null)}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Close photo"
+          >
+            <Ionicons name="close" size={26} color="#fff" />
+          </Pressable>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -362,6 +412,26 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   mediaCaptionText: { color: '#fff', fontSize: 11.5, fontWeight: '600' },
+  viewerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.96)' },
+  viewerImage: { width: '100%', height: '78%' },
+  viewerCaption: {
+    color: '#fff',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.md,
+  },
+  viewerClose: {
+    position: 'absolute',
+    top: 48,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   actionsRow: {
     flexDirection: 'row',
