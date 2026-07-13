@@ -16,8 +16,10 @@ export default function ContactScreen() {
     {
       icon: 'call' as const,
       label: 'Phone',
-      value: contact?.phone ?? '020 8900 9673',
-      action: () => Linking.openURL(`tel:${(contact?.phone ?? '02089009673').replace(/\s/g, '')}`),
+      // international format: national "020…" numbers dial the wrong country
+      // on non-UK phones (iOS resolves them against the DEVICE's region)
+      value: contact?.phone ?? '+44 20 8900 9673',
+      action: () => Linking.openURL(`tel:${(contact?.phone ?? '+442089009673').replace(/\s/g, '')}`),
     },
     {
       icon: 'mail' as const,

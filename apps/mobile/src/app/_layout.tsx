@@ -51,10 +51,14 @@ export default function RootLayout() {
           headerTitleStyle: { fontWeight: '700', fontSize: 15, color: colors.primary },
           headerTitleAlign: 'center',
           headerShadowVisible: false,
+          // iOS labels the back button with the previous route's title, which
+          // for the tab group is the raw folder name "(tabs)" — chevron only
+          headerBackButtonDisplayMode: 'minimal',
           contentStyle: { backgroundColor: colors.screenBackground },
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        {/* title covers iOS's back-button long-press menu (never rendered as a header) */}
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Home' }} />
         </Stack>
       </QueryClientProvider>
     </AppErrorBoundary>
