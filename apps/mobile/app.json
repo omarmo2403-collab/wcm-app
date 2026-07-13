@@ -10,7 +10,10 @@
     "ios": {
       "bundleIdentifier": "com.afomsolutions.wcm",
       "supportsTablet": false,
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/icon.png",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.afomsolutions.wcm",
@@ -61,6 +64,20 @@
         {
           "icon": "./assets/images/notification-icon.png",
           "color": "#159778"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Your location is used only on this device to point the Qibla compass toward Makkah from where you are. It is never stored or shared.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "The compass uses your device's motion sensors to rotate the Qibla pointer as you turn your phone."
         }
       ],
       "./plugins/without-expo-fcm.js"

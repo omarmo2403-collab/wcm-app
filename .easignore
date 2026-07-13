@@ -1,0 +1,46 @@
+# .easignore replaces .gitignore for the EAS build archive — keep it complete.
+# Build needs: apps/mobile, apps/admin (pnpm importer), packages/, root manifests.
+
+# dependencies / VCS / caches
+node_modules/
+**/node_modules/
+.git/
+.claude/
+**/.expo/
+**/.kotlin/
+**/dist/
+**/web-build/
+**/coverage/
+*.log
+
+# generated native projects (EAS prebuilds on the worker)
+apps/mobile/android/
+apps/mobile/ios/
+
+# SECRETS — never upload
+**/*.p8
+**/*.p12
+**/*.jks
+**/*.keystore
+**/*.mobileprovision
+**/*.pem
+.env
+.env.*
+apps/mobile/credentials/
+
+# store / marketing / docs — irrelevant to the native build
+store-assets/
+docs/
+prototype/
+scripts/
+supabase/
+.github/
+WCM_Mobile_App_Proposal_v2.pdf
+logo-icon.svg
+*.aab
+*.apk
+*.ipa
+afom-logo.png
+create_proposal.js
+package-lock.json
+~$*

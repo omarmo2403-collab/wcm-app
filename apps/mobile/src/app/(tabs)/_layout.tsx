@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View, type ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '@/theme/tokens';
 
@@ -43,6 +44,11 @@ const headerStyles = StyleSheet.create({
 });
 
 export default function TabLayout() {
+  // prototype .app-header is a 56px bar; Android's default header is already
+  // 56dp but iOS's is 44pt, which clips the 56px-tall brand block — pin the
+  // content height to 56 on both platforms (height includes the status-bar
+  // inset, which @react-navigation/elements subtracts back out)
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       // prototype: the brand header is persistent across ALL tabs; screen
@@ -50,7 +56,7 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: colors.tabActive,
         tabBarInactiveTintColor: colors.tabInactive,
-        headerStyle: { backgroundColor: colors.cardBackground },
+        headerStyle: { backgroundColor: colors.cardBackground, height: 56 + insets.top },
         headerTitle: () => <BrandHeaderTitle />,
         headerTitleAlign: 'center',
         headerShadowVisible: false,
