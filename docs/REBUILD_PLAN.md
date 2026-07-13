@@ -116,7 +116,7 @@ Legend: ✅ ship in v1 · 🔶 v1 but simplified vs proposal · 🕐 phase 2 · 
 
 - **Home = glanceable answer to "when is the next prayer".** Widget on top, countdown prominent; everything else scrolls below. Skeleton loaders, never spinners-over-blank.
 - **Tab bar:** Home · Events · Donate · Madrasah · More (as approved). Sub-screens are real stack pushes with native back-swipe — the prototype's one-deep history becomes a proper navigator.
-- **Notification onboarding:** don't fire the OS permission dialog on first launch. Show a value proposition screen ("Get Adhan & Iqamah alerts") first; request permission on affirmative tap. Denied-permission state gets a settings deep-link.
+- **Notification onboarding** *(amended 13 Jul 2026 — Omar's TestFlight review)*: fire the OS permission dialog immediately on first launch — this audience installs the app for the alerts, so the prompt needs no warm-up. (Originally: value-proposition card first, prompt on affirmative tap.) Denied-permission state keeps the settings deep-link on the notification-settings screen.
 - **Notification matrix (confirmed requirement).**
 
   | Alert | When it fires | Frequency | Channel |

@@ -6,7 +6,14 @@ import { initAnalytics, track } from '@/lib/analytics';
 import { initOneSignal, syncTopicTags } from '@/lib/onesignal';
 import { registerBackgroundSync } from './background';
 import { usePrefs } from './prefs';
-import { configureNotificationHandling, onResyncRequest, syncPrayerNotifications } from './scheduler';
+import {
+  configureNotificationHandling,
+  getPermissionStatus,
+  onResyncRequest,
+  requestPermission,
+  requestResync,
+  syncPrayerNotifications,
+} from './scheduler';
 
 /**
  * Invisible component mounted inside the providers: keeps the OS notification
@@ -27,6 +34,19 @@ export function NotificationSync() {
     registerBackgroundSync();
     initOneSignal();
     initAnalytics();
+    // REBUILD_PLAN §4 as amended 13 Jul 2026: fire the one-shot OS permission
+    // dialog on FIRST LAUNCH (status still undetermined). The short delay lets
+    // the home screen paint first so the dialog doesn't pop over the splash.
+    const promptTimer = setTimeout(() => {
+      getPermissionStatus().then((status) => {
+        if (status !== 'undetermined') return;
+        requestPermission().then((granted) => {
+          // every sync before the grant no-opped — arm the alerts now
+          if (granted) requestResync();
+        });
+      });
+    }, 600);
+    return () => clearTimeout(promptTimer);
   }, []);
 
   useEffect(() => {
