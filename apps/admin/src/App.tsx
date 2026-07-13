@@ -89,6 +89,9 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [section, setSection] = useState<SectionKey>('timetable');
+  // bumped when the ACTIVE nav item is clicked again — remounts the section,
+  // closing any open editor and refreshing its data
+  const [sectionNonce, setSectionNonce] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -131,7 +134,10 @@ export default function App() {
           <button
             key={n.key}
             className={section === n.key ? 'active' : ''}
-            onClick={() => setSection(n.key)}
+            onClick={() => {
+              if (section === n.key) setSectionNonce((x) => x + 1);
+              else setSection(n.key);
+            }}
           >
             {n.label}
           </button>
@@ -140,10 +146,10 @@ export default function App() {
           Sign out ({session.user.email})
         </button>
       </nav>
-      <main className="main">
+      <main className="main" key={`${section}:${sectionNonce}`}>
         {section === 'timetable' && <Timetable />}
         {section in CRUD_SECTIONS && (
-          <CrudSection key={section} config={CRUD_SECTIONS[section as keyof typeof CRUD_SECTIONS]} />
+          <CrudSection config={CRUD_SECTIONS[section as keyof typeof CRUD_SECTIONS]} />
         )}
         {section === 'notifications' && <Notifications goTo={(s) => setSection(s as SectionKey)} />}
         {section === 'stadiumdays' && <StadiumDays />}
