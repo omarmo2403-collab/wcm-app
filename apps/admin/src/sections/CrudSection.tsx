@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { composeEventReminder, type QueueRow } from '../lib/queue';
-import { supabase } from '../lib/supabase';
+import { callSendPush, supabase } from '../lib/supabase';
 import { formatUk, isoToUkInput, ukToIso } from '../lib/uktime';
 
 type ColumnType = 'text' | 'textarea' | 'number' | 'bool' | 'datetime' | 'time' | 'select' | 'image' | 'video';
@@ -213,6 +213,9 @@ function Editor({
     ),
   );
   const [err, setErr] = useState('');
+  // in-flight image/video uploads — Save must wait for them, or a quick
+  // Save races the upload and the row is stored without the file
+  const [uploading, setUploading] = useState(0);
 
   const save = async () => {
     setErr('');
@@ -270,13 +273,18 @@ function Editor({
                     return;
                   }
                   setErr('');
-                  const path = `videos/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-                  const { error } = await supabase.storage.from('media').upload(path, file, {
-                    cacheControl: '31536000',
-                    upsert: false,
-                  });
-                  if (error) setErr(`Video upload failed: ${error.message}`);
-                  else setValues((v) => ({ ...v, [c.key]: MEDIA_URL + path }));
+                  setUploading((u) => u + 1);
+                  try {
+                    const path = `videos/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+                    const { error } = await supabase.storage.from('media').upload(path, file, {
+                      cacheControl: '31536000',
+                      upsert: false,
+                    });
+                    if (error) setErr(`Video upload failed: ${error.message}`);
+                    else setValues((v) => ({ ...v, [c.key]: MEDIA_URL + path }));
+                  } finally {
+                    setUploading((u) => u - 1);
+                  }
                   e.target.value = '';
                 }}
               />
@@ -306,13 +314,18 @@ function Editor({
                   const file = e.target.files?.[0];
                   if (!file) return;
                   setErr('');
-                  const path = `${config.table}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-                  const { error } = await supabase.storage.from('media').upload(path, file, {
-                    cacheControl: '31536000',
-                    upsert: false,
-                  });
-                  if (error) setErr(`Image upload failed: ${error.message}`);
-                  else setValues((v) => ({ ...v, [c.key]: path }));
+                  setUploading((u) => u + 1);
+                  try {
+                    const path = `${config.table}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+                    const { error } = await supabase.storage.from('media').upload(path, file, {
+                      cacheControl: '31536000',
+                      upsert: false,
+                    });
+                    if (error) setErr(`Image upload failed: ${error.message}`);
+                    else setValues((v) => ({ ...v, [c.key]: path }));
+                  } finally {
+                    setUploading((u) => u - 1);
+                  }
                   e.target.value = '';
                 }}
               />
@@ -342,7 +355,9 @@ function Editor({
       {visible.slice(splitAt).map(renderField)}
       {err && <p className="err" style={{ marginTop: 10 }}>{err}</p>}
       <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
-        <button className="btn" onClick={save}>Save</button>
+        <button className="btn" onClick={save} disabled={uploading > 0}>
+          {uploading > 0 ? 'Uploading…' : 'Save'}
+        </button>
         <button className="btn secondary" onClick={() => onDone(false)}>Cancel</button>
       </div>
     </div>
@@ -360,15 +375,19 @@ function EventScheduleFields({ values, setValues, row }: {
   setValues: React.Dispatch<React.SetStateAction<Record<string, string | boolean>>>;
   row: Row | null;
 }) {
-  const timeType: 'fixed' | 'flexible' | 'allday' = values.all_day
-    ? (String(values.time_label ?? '').trim() ? 'flexible' : 'allday')
-    : 'fixed';
+  // own state, not derived: deriving from the label made "Flexible" impossible
+  // to select (empty label snapped it back to "All day")
+  const [timeType, setTimeType] = useState<'fixed' | 'flexible' | 'allday'>(() =>
+    values.all_day ? (String(values.time_label ?? '').trim() ? 'flexible' : 'allday') : 'fixed',
+  );
   const [reminderMode, setReminderMode] = useState<'auto' | 'morning' | 'custom' | 'none'>(
     () => (row ? (values.notify_at ? 'custom' : 'none') : 'auto'),
   );
   const [queueRow, setQueueRow] = useState<QueueRow | null>(null);
+  const [sendingNow, setSendingNow] = useState(false);
+  const [sendStatus, setSendStatus] = useState('');
 
-  useEffect(() => {
+  const refreshQueueRow = useCallback(() => {
     if (!row) return;
     supabase.from('notification_queue')
       .select('id,source,source_id,title,message,topic,route,url,fire_at,status,sent_at,recipients,error')
@@ -376,6 +395,8 @@ function EventScheduleFields({ values, setValues, row }: {
       .order('created_at', { ascending: false }).limit(1)
       .then(({ data }) => setQueueRow((data?.[0] as QueueRow) ?? null));
   }, [row]);
+
+  useEffect(() => { refreshQueueRow(); }, [refreshQueueRow]);
 
   const set = (k: string, v: string | boolean) => setValues((p) => ({ ...p, [k]: v }));
 
@@ -420,8 +441,9 @@ function EventScheduleFields({ values, setValues, row }: {
         {([['fixed', 'Fixed time'], ['flexible', 'Flexible (label instead of a time)'], ['allday', 'All day']] as const)
           .map(([v, lbl]) => (
             <label key={v} style={{ fontWeight: 400, display: 'flex', gap: 5, alignItems: 'center' }}>
-              <input type="radio" checked={timeType === v} style={{ width: 'auto', margin: 0 }}
+              <input type="radio" name="timetype" checked={timeType === v} style={{ width: 'auto', margin: 0 }}
                 onChange={() => {
+                  setTimeType(v);
                   set('all_day', v !== 'fixed');
                   if (v !== 'flexible') set('time_label', '');
                 }} />
@@ -442,7 +464,7 @@ function EventScheduleFields({ values, setValues, row }: {
            ['morning', 'Morning of event (9am UK)'], ['custom', 'Custom (UK)'], ['none', 'No reminder']] as const)
           .map(([v, lbl]) => (
             <label key={v} style={{ fontWeight: 400, display: 'flex', gap: 5, alignItems: 'center' }}>
-              <input type="radio" checked={reminderMode === v} style={{ width: 'auto', margin: 0 }}
+              <input type="radio" name="remindermode" checked={reminderMode === v} style={{ width: 'auto', margin: 0 }}
                 onChange={() => applyReminder(v)} />
               {lbl}
             </label>
@@ -485,6 +507,50 @@ function EventScheduleFields({ values, setValues, row }: {
       )}
       {reminderMode === 'none' && (
         <p className="note">No push notification will be sent for this event.</p>
+      )}
+
+      {row && (
+        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            className="btn secondary"
+            type="button"
+            disabled={sendingNow || !values.is_published || !preview}
+            onClick={async () => {
+              if (!preview) return;
+              if (!window.confirm(
+                `Send this push to Events subscribers NOW?\n\n"${preview.title}: ${preview.message}"\n\n` +
+                'Any scheduled reminder for this event will be cancelled so nothing is sent twice.',
+              )) return;
+              setSendingNow(true);
+              setSendStatus('');
+              const res = await callSendPush({
+                title: preview.title,
+                message: preview.message,
+                topic: 'events',
+                route: `/event/${row.id}`,
+                source: 'event',
+                source_id: row.id,
+              });
+              if (res.ok) {
+                // clear the scheduled reminder so it cannot also fire
+                await supabase.from('events').update({ notify_at: null }).eq('id', row.id);
+                setReminderMode('none');
+                set('notify_at', '');
+                setSendStatus('Sent now ✓');
+                refreshQueueRow();
+              } else {
+                setSendStatus(`Send failed: ${typeof res.message === 'string' ? res.message : JSON.stringify(res.errors)}`);
+              }
+              setSendingNow(false);
+            }}
+          >
+            {sendingNow ? 'Sending…' : 'Send reminder now'}
+          </button>
+          {!values.is_published && <span className="note">publish the event first</span>}
+          {sendStatus && (
+            <span className={sendStatus.startsWith('Send failed') ? 'err' : 'ok'}>{sendStatus}</span>
+          )}
+        </div>
       )}
     </>
   );

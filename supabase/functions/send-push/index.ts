@@ -105,9 +105,20 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
-    const src = body.source === 'prayer_change' ? 'prayer_change' : 'composer';
+    const src = body.source === 'prayer_change'
+      ? 'prayer_change'
+      : body.source === 'event'
+        ? 'event'
+        : 'composer';
+    // "send reminder now" logs against the event so its form shows Sent ✓
+    const srcId = src === 'event'
+      && typeof body.source_id === 'string'
+      && route === `/event/${body.source_id}`
+      ? body.source_id
+      : null;
     await service.from('notification_queue').insert({
       source: src,
+      source_id: srcId,
       title, message, topic,
       route: typeof route === 'string' && route.startsWith('/') ? route : null,
       url: typeof url === 'string' && url && !(typeof route === 'string' && route.startsWith('/')) ? url : null,
