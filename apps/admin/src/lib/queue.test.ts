@@ -21,4 +21,15 @@ describe('composeEventReminder mirrors compose_event_reminder (SQL)', () => {
       title: 'x'.repeat(80), starts_at: '2026-07-13T11:00:00Z', all_day: true, time_label: null,
     }).title.length).toBeLessThanOrEqual(65);
   });
+  it('custom message overrides the template; blank falls back', () => {
+    const ev = {
+      title: 'Urdu Seerah', starts_at: '2026-07-13T11:00:00Z', all_day: true,
+      time_label: 'After Maghrib Salah',
+    };
+    expect(composeEventReminder({
+      ...ev, notify_message: "Tonight's lecture is moved to the main hall",
+    }).message).toBe("Tonight's lecture is moved to the main hall");
+    expect(composeEventReminder({ ...ev, notify_message: '   ' }).message)
+      .toBe('Join us after Maghrib Salah at Wembley Central Masjid. Tap for details.');
+  });
 });

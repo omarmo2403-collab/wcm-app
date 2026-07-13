@@ -39,6 +39,7 @@ export const CRUD_SECTIONS: Record<string, CrudConfig> = {
       { key: 'all_day', label: 'All day', type: 'bool', listHidden: true, formHidden: true },
       { key: 'time_label', label: 'Time label', type: 'text', listHidden: true, formHidden: true },
       { key: 'notify_at', label: 'Reminder', type: 'datetime', listHidden: true, formHidden: true },
+      { key: 'notify_message', label: 'Custom reminder message', type: 'textarea', listHidden: true, formHidden: true },
       {
         key: 'category',
         label: 'Category',
@@ -408,6 +409,7 @@ function EventScheduleFields({ values, setValues, row }: {
         starts_at: startsIso,
         all_day: Boolean(values.all_day),
         time_label: String(values.time_label ?? '').trim() || null,
+        notify_message: String(values.notify_message ?? ''),
       })
     : null;
 
@@ -449,6 +451,21 @@ function EventScheduleFields({ values, setValues, row }: {
       {reminderMode === 'custom' && (
         <input type="datetime-local" value={String(values.notify_at ?? '')}
           onChange={(e) => set('notify_at', e.target.value)} />
+      )}
+
+      {reminderMode !== 'none' && (
+        <div>
+          <label>
+            Custom reminder message (optional — replaces the automatic text,{' '}
+            {String(values.notify_message ?? '').length}/178)
+          </label>
+          <textarea
+            value={String(values.notify_message ?? '')}
+            maxLength={178}
+            placeholder='Leave blank for the automatic text, or write your own — e.g. "Tonight&apos;s lecture is moved to the main hall."'
+            onChange={(e) => set('notify_message', e.target.value)}
+          />
+        </div>
       )}
 
       {queueRow?.status === 'sent' && (

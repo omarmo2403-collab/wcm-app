@@ -81,7 +81,11 @@ export async function cancelRow(id: string): Promise<string | null> {
 /** TS mirror of public.compose_event_reminder — used for the form preview. */
 export function composeEventReminder(ev: {
   title: string; starts_at: string; all_day: boolean; time_label: string | null;
+  notify_message?: string | null;
 }): { title: string; message: string } {
+  const title = `${ev.title.slice(0, 59)} today`;
+  const custom = ev.notify_message?.trim();
+  if (custom) return { title, message: custom.slice(0, 178) };
   const label = ev.time_label?.trim() ? ev.time_label.trim() : null;
   const when = label
     ? label.charAt(0).toLowerCase() + label.slice(1)
@@ -91,7 +95,7 @@ export function composeEventReminder(ev: {
           timeZone: 'Europe/London', hour: 'numeric', minute: '2-digit', hour12: true,
         })}`;
   return {
-    title: `${ev.title.slice(0, 59)} today`,
+    title,
     message: `Join us ${when} at Wembley Central Masjid. Tap for details.`.slice(0, 178),
   };
 }
