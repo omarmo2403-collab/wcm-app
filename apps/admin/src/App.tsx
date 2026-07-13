@@ -32,6 +32,18 @@ const NAV: { key: SectionKey; label: string }[] = [
   { key: 'audit', label: 'Audit Log' },
 ];
 
+/**
+ * Section (and optional sub-state like an open editor) live in the URL hash —
+ * "#events/edit/<id>", "#notifications/sent" — so the browser back/forward
+ * buttons work and views are bookmarkable. Supabase's magic-link tokens also
+ * arrive in the hash; they parse to no known section and fall back harmlessly.
+ */
+function parseHash(): { section: SectionKey; sub: string } {
+  const [sec, ...rest] = window.location.hash.replace(/^#/, '').split('/');
+  const known = NAV.some((n) => n.key === sec);
+  return { section: known ? (sec as SectionKey) : 'timetable', sub: rest.join('/') };
+}
+
 function Login() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
@@ -88,7 +100,8 @@ function Login() {
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
-  const [section, setSection] = useState<SectionKey>('timetable');
+  // the URL hash is the single source of truth for where we are
+  const [{ section, sub }, setRoute] = useState(parseHash);
   // bumped when the ACTIVE nav item is clicked again — remounts the section,
   // closing any open editor and refreshing its data
   const [sectionNonce, setSectionNonce] = useState(0);
@@ -98,8 +111,13 @@ export default function App() {
       setSession(data.session);
       setReady(true);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
+    const { data: authSub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const onHash = () => setRoute(parseHash());
+    window.addEventListener('hashchange', onHash);
+    return () => {
+      authSub.subscription.unsubscribe();
+      window.removeEventListener('hashchange', onHash);
+    };
   }, []);
 
   if (!ready) return null;
@@ -135,8 +153,8 @@ export default function App() {
             key={n.key}
             className={section === n.key ? 'active' : ''}
             onClick={() => {
-              if (section === n.key) setSectionNonce((x) => x + 1);
-              else setSection(n.key);
+              if (section === n.key && !sub) setSectionNonce((x) => x + 1);
+              else window.location.hash = `#${n.key}`;
             }}
           >
             {n.label}
@@ -149,9 +167,13 @@ export default function App() {
       <main className="main" key={`${section}:${sectionNonce}`}>
         {section === 'timetable' && <Timetable />}
         {section in CRUD_SECTIONS && (
-          <CrudSection config={CRUD_SECTIONS[section as keyof typeof CRUD_SECTIONS]} />
+          <CrudSection
+            config={CRUD_SECTIONS[section as keyof typeof CRUD_SECTIONS]}
+            hashBase={section}
+            sub={sub}
+          />
         )}
-        {section === 'notifications' && <Notifications goTo={(s) => setSection(s as SectionKey)} />}
+        {section === 'notifications' && <Notifications sub={sub} />}
         {section === 'stadiumdays' && <StadiumDays />}
         {section === 'push' && <PushComposer />}
         {section === 'schedule' && <SchedulePush />}

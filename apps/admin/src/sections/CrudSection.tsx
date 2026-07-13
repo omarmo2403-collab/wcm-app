@@ -490,11 +490,24 @@ function EventScheduleFields({ values, setValues, row }: {
   );
 }
 
-export function CrudSection({ config }: { config: CrudConfig }) {
+export function CrudSection({ config, hashBase, sub }: {
+  config: CrudConfig;
+  /** section key this instance lives under — editor state is written to the hash */
+  hashBase: string;
+  /** hash remainder: '' (list) | 'new' | 'edit/<row id>' */
+  sub: string;
+}) {
   const [rows, setRows] = useState<Row[]>([]);
-  const [editing, setEditing] = useState<Row | null | 'new'>(null);
   const [reminders, setReminders] = useState<Map<string, QueueRow>>(new Map());
   const [err, setErr] = useState('');
+
+  // the open editor is derived from the URL hash, so browser back/forward
+  // naturally close and reopen it
+  const editing: Row | 'new' | null = sub === 'new'
+    ? 'new'
+    : sub.startsWith('edit/')
+      ? rows.find((r) => r.id === sub.slice('edit/'.length)) ?? null
+      : null;
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -546,17 +559,18 @@ export function CrudSection({ config }: { config: CrudConfig }) {
       {err && <p className="err">{err}</p>}
       {editing !== null ? (
         <Editor
+          key={editing === 'new' ? 'new' : editing.id}
           config={config}
           row={editing === 'new' ? null : editing}
           onDone={(changed) => {
-            setEditing(null);
+            window.location.hash = `#${hashBase}`;
             if (changed) load();
           }}
         />
       ) : (
         <>
           <div className="toolbar">
-            <button className="btn" onClick={() => setEditing('new')}>+ New</button>
+            <button className="btn" onClick={() => { window.location.hash = `#${hashBase}/new`; }}>+ New</button>
             <span className="note">{rows.length} items</span>
           </div>
           <div className="card">
@@ -596,7 +610,7 @@ export function CrudSection({ config }: { config: CrudConfig }) {
                       </td>
                     )}
                     <td className="row-actions">
-                      <button className="btn small secondary" onClick={() => setEditing(row)}>Edit</button>
+                      <button className="btn small secondary" onClick={() => { window.location.hash = `#${hashBase}/edit/${row.id}`; }}>Edit</button>
                       <button className="btn small danger" onClick={() => remove(row)}>Delete</button>
                     </td>
                   </tr>

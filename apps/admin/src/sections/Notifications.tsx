@@ -20,8 +20,13 @@ function tapOpens(r: QueueRow): string {
   return 'the app';
 }
 
-export function Notifications({ goTo }: { goTo: (section: string) => void }) {
-  const [tab, setTab] = useState<'upcoming' | 'sent'>('upcoming');
+export function Notifications({ sub }: { sub: string }) {
+  // tab lives in the hash (#notifications / #notifications/sent) so
+  // back/forward and bookmarks work
+  const tab: 'upcoming' | 'sent' = sub === 'sent' ? 'sent' : 'upcoming';
+  const setTab = (t: 'upcoming' | 'sent') => {
+    window.location.hash = t === 'sent' ? '#notifications/sent' : '#notifications';
+  };
   const [rows, setRows] = useState<QueueRow[]>([]);
   const [err, setErr] = useState('');
 
@@ -85,11 +90,11 @@ export function Notifications({ goTo }: { goTo: (section: string) => void }) {
                       <>
                         {' '}
                         <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            goTo(SOURCE_SECTION[r.source]!);
-                          }}
+                          href={
+                            r.source === 'event' && r.source_id
+                              ? `#events/edit/${r.source_id}`
+                              : `#${SOURCE_SECTION[r.source]}`
+                          }
                         >
                           edit
                         </a>
