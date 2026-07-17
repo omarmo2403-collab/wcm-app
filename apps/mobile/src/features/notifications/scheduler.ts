@@ -42,8 +42,38 @@ export async function getPermissionStatus(): Promise<Notifications.PermissionSta
   return status;
 }
 
+/** Full permission state — the card needs canAskAgain to decide between
+ *  re-prompting and deep-linking to OS settings. */
+export async function getPermissionState(): Promise<{
+  status: Notifications.PermissionStatus | 'unsupported';
+  canAskAgain: boolean;
+  granted: boolean;
+}> {
+  if (!notificationsSupported()) return { status: 'unsupported', canAskAgain: false, granted: false };
+  const res = await Notifications.getPermissionsAsync();
+  return { status: res.status, canAskAgain: res.canAskAgain, granted: res.status === 'granted' };
+}
+
 export async function requestPermission(): Promise<boolean> {
   if (!notificationsSupported()) return false;
+  const { status } = await Notifications.requestPermissionsAsync();
+  return status === 'granted';
+}
+
+/**
+ * First-launch / card path. On Android, expo-notifications does NOT reliably
+ * report `undetermined` for a never-asked install — it commonly returns
+ * `denied` with `canAskAgain: true`. So gating on the status STRING silently
+ * skips the request. Gate on capability instead: fire the OS dialog whenever
+ * permission isn't already granted AND the OS will still show it. Returns the
+ * final granted state. (`canAskAgain: false` = permanently denied → the card
+ * deep-links to Settings instead.)
+ */
+export async function requestPermissionIfPossible(): Promise<boolean> {
+  if (!notificationsSupported()) return false;
+  const current = await Notifications.getPermissionsAsync();
+  if (current.status === 'granted') return true;
+  if (!current.canAskAgain) return false;
   const { status } = await Notifications.requestPermissionsAsync();
   return status === 'granted';
 }

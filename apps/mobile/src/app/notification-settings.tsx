@@ -7,9 +7,9 @@ import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 
 import { ScreenTitle, SectionCard, CardTitle } from '@/components/ui/section-card';
 import { TOPICS, usePrefs } from '@/features/notifications/prefs';
 import {
-  getPermissionStatus,
+  getPermissionState,
   getScheduledSummary,
-  requestPermission,
+  requestPermissionIfPossible,
   requestResync,
   sendTestNotification,
   type ScheduledSummary,
@@ -23,13 +23,21 @@ import { colors, radii, spacing } from '@/theme/tokens';
  */
 export default function NotificationSettingsScreen() {
   const { topics, setTopic } = usePrefs();
-  const [permission, setPermission] = useState<string>('checking…');
+  const [perm, setPerm] = useState<{ granted: boolean; canAskAgain: boolean }>();
   const [scheduled, setScheduled] = useState<ScheduledSummary[]>([]);
 
   const refresh = useCallback(async () => {
-    setPermission(await getPermissionStatus());
+    const s = await getPermissionState();
+    setPerm({ granted: s.granted, canAskAgain: s.canAskAgain });
     setScheduled(await getScheduledSummary());
   }, []);
+
+  const enable = useCallback(async () => {
+    const granted = await requestPermissionIfPossible();
+    if (granted) requestResync();
+    else if (perm && !perm.canAskAgain) Linking.openSettings();
+    refresh();
+  }, [perm, refresh]);
 
   useEffect(() => {
     refresh();
@@ -45,35 +53,18 @@ export default function NotificationSettingsScreen() {
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
         <ScreenTitle>Push Notifications</ScreenTitle>
 
-        {permission === 'denied' && (
-          <SectionCard style={styles.cardFlush}>
-            <CardTitle>Notifications are off</CardTitle>
-            <Text style={styles.note}>
-              Enable notifications for Wembley Central Masjid in your phone settings to receive
-              alerts.
-            </Text>
-            <Pressable style={styles.button} onPress={() => Linking.openSettings()}>
-              <Text style={styles.buttonText}>Open phone settings</Text>
-            </Pressable>
-          </SectionCard>
-        )}
-
-        {permission === 'undetermined' && (
+        {perm && !perm.granted && (
           <SectionCard style={styles.cardFlush}>
             <CardTitle>Turn on notifications</CardTitle>
             <Text style={styles.note}>
-              Allow notifications to be reminded 15 minutes before every iqamah.
+              {perm.canAskAgain
+                ? 'Allow notifications to be reminded 15 minutes before every iqamah, and to get Masjid alerts.'
+                : 'Notifications are off. Enable them for Wembley Central Masjid in your phone settings to receive alerts.'}
             </Text>
-            <Pressable
-              style={styles.button}
-              onPress={() =>
-                requestPermission().then((granted) => {
-                  if (granted) requestResync();
-                  refresh();
-                })
-              }
-            >
-              <Text style={styles.buttonText}>Enable notifications</Text>
+            <Pressable style={styles.button} onPress={enable}>
+              <Text style={styles.buttonText}>
+                {perm.canAskAgain ? 'Enable notifications' : 'Open phone settings'}
+              </Text>
             </Pressable>
           </SectionCard>
         )}
@@ -104,7 +95,7 @@ export default function NotificationSettingsScreen() {
           ))}
         </SectionCard>
 
-        {permission === 'granted' && topics.prayer_times && (
+        {perm?.granted && topics.prayer_times && (
           <SectionCard style={styles.cardFlush}>
             <CardTitle>Scheduled on this phone</CardTitle>
             <Text style={styles.note}>
@@ -119,13 +110,7 @@ export default function NotificationSettingsScreen() {
           </SectionCard>
         )}
 
-        {permission === 'unsupported' && (
-          <Text style={styles.batteryNote}>
-            Notifications are not available in the web preview — use the mobile app.
-          </Text>
-        )}
-
-        {Platform.OS === 'android' && permission === 'granted' && (
+        {Platform.OS === 'android' && perm?.granted && (
           <Text style={styles.batteryNote}>
             Tip: if alerts arrive late, exclude this app from battery optimisation in your phone
             settings.
